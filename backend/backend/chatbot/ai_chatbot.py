@@ -203,54 +203,176 @@ class AIChatbot:
         """Generate a comprehensive, realistic training dataset for all product types and queries"""
         training_data = []
 
-        # --- Beauty & Makeup ---
+        # --- SALESPERSON-LIKE QUERIES: Product Search with Specificity ---
+        specific_search_patterns = [
+            # Color + Product combinations
+            "show me grey shirts", "find blue t-shirts", "I want red dresses", "looking for black shoes", 
+            "show me white sneakers", "find green hoodies", "I need pink lipsticks", "show me yellow tops",
+            "find purple dresses", "show me brown shoes", "I want orange t-shirts", "find silver jewelry",
+            
+            # Quantity + Product combinations
+            "show me 3 shirts", "find 5 t-shirts", "get 2 dresses", "show me 4 pairs of shoes",
+            "I want 3 lipsticks", "find 2 laptops", "show me 6 t-shirts", "get 1 phone",
+            "show me 10 products", "find 3 alternatives", "get 5 options", "show me 2 choices",
+            
+            # Seasonal/Contextual searches
+            "any light t-shirts for summer", "show me winter jackets", "find summer dresses",
+            "show me spring collection", "find autumn wear", "show me beach wear",
+            "any formal shirts", "find casual wear", "show me party dresses",
+            "find workout clothes", "show me office wear", "find weekend outfits",
+            
+            # Material/Quality searches
+            "show me cotton shirts", "find silk dresses", "show me leather shoes",
+            "find denim jeans", "show me wool sweaters", "find polyester shirts",
+            "show me organic cotton", "find sustainable fashion", "show me premium quality",
+            "find budget-friendly options", "show me luxury items", "find affordable alternatives"
+        ]
+        for pattern in specific_search_patterns:
+            training_data.append({'text': pattern, 'intent': 'product_search', 'entities': {}})
+
+        # --- COMPARISON QUERIES: Salesperson Comparison Skills ---
+        comparison_patterns = [
+            # Direct comparison requests
+            "compare these shirts", "which t-shirt is better", "compare these 3 products",
+            "show me the differences", "which one should I choose", "help me decide between these",
+            "what's the difference between these", "compare prices and quality",
+            "which is the best option", "compare features", "show me pros and cons",
+            
+            # Value-based comparisons
+            "which t-shirt is the best value for money", "show me the best bang for buck",
+            "which product offers the most value", "compare value for money",
+            "which is worth the price", "show me cost-effective options",
+            "which gives me the most for my money", "compare price to quality ratio",
+            
+            # Feature-based comparisons
+            "which has better quality", "compare durability", "which lasts longer",
+            "compare comfort levels", "which is more comfortable", "compare styles",
+            "which looks better", "compare designs", "which is more fashionable",
+            "compare sizes", "which fits better", "compare colors"
+        ]
+        for pattern in comparison_patterns:
+            training_data.append({'text': pattern, 'intent': 'comparison_request', 'entities': {}})
+
+        # --- TRENDING & POPULARITY QUERIES ---
+        trending_patterns = [
+            "show me trending shirts", "what's popular right now", "show me best sellers",
+            "find trending products", "show me hot items", "what's in fashion",
+            "show me popular choices", "find trending styles", "show me what's new",
+            "what are people buying", "show me customer favorites", "find trending colors",
+            "show me viral products", "what's trending this season", "show me popular brands"
+        ]
+        for pattern in trending_patterns:
+            training_data.append({'text': pattern, 'intent': 'trending_request', 'entities': {}})
+
+        # --- RATING & REVIEW QUERIES ---
+        rating_patterns = [
+            "show me best rated shirts", "find highly rated products", "show me top rated items",
+            "which has the best reviews", "show me customer favorites", "find well-reviewed products",
+            "show me 5-star products", "which gets the best feedback", "show me highly recommended",
+            "find products with good ratings", "show me customer choice awards", "which is most popular"
+        ]
+        for pattern in rating_patterns:
+            training_data.append({'text': pattern, 'intent': 'rating_inquiry', 'entities': {}})
+
+        # --- ALTERNATIVES & SUBSTITUTES QUERIES ---
+        alternatives_patterns = [
+            "show me alternatives for this product", "find similar items", "show me other options",
+            "what else do you have like this", "show me substitutes", "find comparable products",
+            "show me other choices", "what are my alternatives", "find similar styles",
+            "show me different options", "what else is available", "find other brands",
+            "show me more options", "what are the alternatives", "find similar quality items"
+        ]
+        for pattern in alternatives_patterns:
+            training_data.append({'text': pattern, 'intent': 'alternatives_request', 'entities': {}})
+
+        # --- CONTEXTUAL AWARENESS QUERIES ---
+        contextual_patterns = [
+            # Follow-up questions
+            "tell me more about this", "what about the price", "how about the quality",
+            "what's the material", "tell me about the brand", "what are the features",
+            "how does it compare", "what's special about this", "why should I choose this",
+            "what makes this different", "is this worth it", "should I buy this",
+            
+            # Contextual recommendations
+            "what would you recommend", "what do you suggest", "help me choose",
+            "what's your opinion", "what would you buy", "give me advice",
+            "what's the best choice", "guide me", "help me decide",
+            "what's your recommendation", "suggest something", "advise me"
+        ]
+        for pattern in contextual_patterns:
+            training_data.append({'text': pattern, 'intent': 'context_question', 'entities': {}})
+
+        # --- SALES ASSISTANCE QUERIES ---
+        sales_patterns = [
+            "I need help choosing", "can you help me find", "I'm not sure what to buy",
+            "help me pick", "I need guidance", "what should I look for",
+            "how do I choose", "what factors should I consider", "help me decide",
+            "I'm confused", "what's your advice", "guide me through this",
+            "I need recommendations", "suggest something for me", "help me shop"
+        ]
+        for pattern in sales_patterns:
+            training_data.append({'text': pattern, 'intent': 'sales_assistance', 'entities': {}})
+
+        # --- Beauty & Makeup (Enhanced) ---
         beauty_patterns = [
-            "show me lipsticks", "I want matte lipstick", "find me some eyeliners", "search for makeup", "show beauty products", "I need a new lipstick", "where can I find foundation", "show me cosmetics", "find blush", "show me mascara", "recommend me makeup", "best lipstick brands", "affordable eyeliners", "long-lasting lipstick", "show me makeup kits", "find me beauty essentials", "show me vegan cosmetics", "find cruelty-free lipstick", "organic beauty products", "best foundation for oily skin", "cheap mascara", "luxury makeup brands"
+            "show me lipsticks", "I want matte lipstick", "find me some eyeliners", "search for makeup", 
+            "show beauty products", "I need a new lipstick", "where can I find foundation", "show me cosmetics", 
+            "find blush", "show me mascara", "recommend me makeup", "best lipstick brands", "affordable eyeliners", 
+            "long-lasting lipstick", "show me makeup kits", "find me beauty essentials", "show me vegan cosmetics", 
+            "find cruelty-free lipstick", "organic beauty products", "best foundation for oily skin", "cheap mascara", 
+            "luxury makeup brands", "compare lipstick brands", "which foundation is best", "show me trending makeup",
+            "find alternatives to this lipstick", "what's the best value makeup", "show me highly rated cosmetics"
         ]
         for pattern in beauty_patterns:
             training_data.append({'text': pattern, 'intent': 'product_search', 'entities': {'categories': ['beauty', 'makeup', 'lipstick', 'eyeliner', 'cosmetics']}})
 
-        # --- Fashion & Apparel ---
+        # --- Fashion & Apparel (Enhanced) ---
         fashion_patterns = [
-            "show me t-shirts", "I want cotton shirts", "looking for hoodies", "find me some tops", "search for dresses", "show casual wear", "I need a new shirt", "where can I find pants", "show me options", "find jeans", "show me jackets", "recommend me shoes", "best sneakers", "affordable dresses", "summer wear", "winter jackets", "show me blue jeans", "find red dresses", "show me black t-shirts", "find white sneakers", "show me green hoodies"
+            "show me t-shirts", "I want cotton shirts", "looking for hoodies", "find me some tops", 
+            "search for dresses", "show casual wear", "I need a new shirt", "where can I find pants", 
+            "show me options", "find jeans", "show me jackets", "recommend me shoes", "best sneakers", 
+            "affordable dresses", "summer wear", "winter jackets", "show me blue jeans", "find red dresses", 
+            "show me black t-shirts", "find white sneakers", "show me green hoodies", "compare these shirts",
+            "which dress is better", "show me trending fashion", "find alternatives to this shirt",
+            "what's the best value clothing", "show me highly rated clothes", "compare shoe brands"
         ]
         for pattern in fashion_patterns:
             training_data.append({'text': pattern, 'intent': 'product_search', 'entities': {'categories': ['fashion', 'clothing', 'shoes', 'apparel']}})
 
-        # --- Electronics ---
+        # --- Electronics (Enhanced) ---
         electronics_patterns = [
-            "show me phones", "I want a new laptop", "find me some headphones", "search for smartwatches", "show electronics", "I need a new phone", "where can I find tablets", "show me gadgets", "find speakers", "show me cameras", "recommend me laptops", "best smartphones", "affordable tablets", "wireless headphones", "gaming laptops", "show me apple iphone", "find samsung galaxy", "show me sony headphones"
+            "show me phones", "I want a new laptop", "find me some headphones", "search for smartwatches", 
+            "show electronics", "I need a new phone", "where can I find tablets", "show me gadgets", 
+            "find speakers", "show me cameras", "recommend me laptops", "best smartphones", "affordable tablets", 
+            "wireless headphones", "gaming laptops", "show me apple iphone", "find samsung galaxy", 
+            "show me sony headphones", "compare these phones", "which laptop is better",
+            "show me trending electronics", "find alternatives to this phone", "what's the best value tech",
+            "show me highly rated gadgets", "compare laptop brands"
         ]
         for pattern in electronics_patterns:
             training_data.append({'text': pattern, 'intent': 'product_search', 'entities': {'categories': ['electronics', 'phones', 'laptops', 'gadgets']}})
 
-        # --- General Product Search ---
-        generic_patterns = [
-            "show me products", "I want to see what's available", "find me something new", "search products", "show me your selection", "what do you have", "can you help me find", "I need something", "display products", "find items", "browse products", "show me best sellers", "show me trending products", "show me popular items"
-        ]
-        for pattern in generic_patterns:
-            training_data.append({'text': pattern, 'intent': 'product_search', 'entities': {}})
-
-        # --- Brand Search ---
+        # --- Brand Search (Enhanced) ---
         brand_patterns = [
-            "show me Nike shoes", "find Adidas sneakers", "search for Apple phones", "show Samsung gadgets", "I want Sony headphones", "find me Reebok shoes", "show Converse sneakers", "best Jordan shoes", "affordable Puma sneakers", "find Under Armour t-shirts", "show me LG electronics", "find Vans shoes"
+            "show me Nike shoes", "find Adidas sneakers", "search for Apple phones", "show Samsung gadgets", 
+            "I want Sony headphones", "find me Reebok shoes", "show Converse sneakers", "best Jordan shoes", 
+            "affordable Puma sneakers", "find Under Armour t-shirts", "show me LG electronics", "find Vans shoes",
+            "compare Nike and Adidas", "which brand is better", "show me trending brands",
+            "find alternatives to Nike", "what's the best value brand", "show me highly rated brands"
         ]
         for pattern in brand_patterns:
             training_data.append({'text': pattern, 'intent': 'brand_search', 'entities': {'brands': ['nike', 'adidas', 'apple', 'samsung', 'sony', 'reebok', 'converse', 'jordan', 'puma', 'under armour', 'lg', 'vans']}})
 
-        # --- Price Inquiry ---
+        # --- Price Inquiry (Enhanced) ---
         price_patterns = [
-            "show me lipsticks under $20", "find affordable makeup", "cheap t-shirts", "expensive headphones", "phones less than $500", "laptops over $1000", "budget shoes", "affordable dresses", "show me products under $50", "find items over $200", "show me blue jeans under $100"
+            "show me lipsticks under $20", "find affordable makeup", "cheap t-shirts", "expensive headphones", 
+            "phones less than $500", "laptops over $1000", "budget shoes", "affordable dresses", 
+            "show me products under $50", "find items over $200", "show me blue jeans under $100",
+            "what's the best value for money", "show me budget-friendly options", "find premium products",
+            "compare prices", "which is more affordable", "show me cost-effective choices"
         ]
         for pattern in price_patterns:
             training_data.append({'text': pattern, 'intent': 'price_inquiry', 'entities': {}})
-
-        # --- Comparison & Recommendation ---
-        comparison_patterns = [
-            "which lipstick is best", "compare these phones", "which one should I buy", "recommend a good eyeliner", "what's the difference between these laptops", "which dress is better", "best value for money lipstick", "top rated mascara", "which is better: apple or samsung", "compare nike and adidas shoes", "which phone has better battery life"
-        ]
-        for pattern in comparison_patterns:
-            training_data.append({'text': pattern, 'intent': 'comparison_request', 'entities': {}})
 
         # --- Greetings & Goodbyes ---
         greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "greetings", "what's up", "howdy", "yo"]
@@ -260,12 +382,15 @@ class AIChatbot:
         for g in goodbyes:
             training_data.append({'text': g, 'intent': 'goodbye', 'entities': {}})
 
-        # --- Edge Cases & Synonyms ---
-        edge_patterns = [
-            "show me matte lipstick", "find waterproof eyeliner", "best foundation for oily skin", "cheap mascara", "luxury makeup brands", "show me vegan cosmetics", "find cruelty-free lipstick", "organic beauty products", "show me 3 shoes", "find 5 laptops", "get 2 phones", "show me red shoes", "find blue jeans", "show me black t-shirt", "find white sneakers", "show me green hoodies", "show me products between $100 and $200", "show me products over $500", "show me products under $50"
+        # --- Follow-up Questions (Contextual) ---
+        follow_up_patterns = [
+            "what about the price", "how about the quality", "tell me more", "what else",
+            "show me more", "what about alternatives", "how does it compare", "what's different",
+            "why this one", "what makes it special", "is it worth it", "should I buy it",
+            "what's your opinion", "what do you think", "help me decide", "guide me"
         ]
-        for pattern in edge_patterns:
-            training_data.append({'text': pattern, 'intent': 'product_search', 'entities': {}})
+        for pattern in follow_up_patterns:
+            training_data.append({'text': pattern, 'intent': 'follow_up_price', 'entities': {}})
 
         return training_data
     
@@ -713,7 +838,8 @@ class AIChatbot:
                             quantity = int(token.text)
         print(f"[DEBUG] Extracted quantity: {quantity} from message: '{message}'")
         # Fallback: if no category found, use top keyword as pseudo-category (skip for follow-up)
-        if not categories and not is_follow_up:
+        # But don't create fallback categories if colors are already detected (to avoid "Grey" category)
+        if not categories and not is_follow_up and not colors:
             for token in doc:
                 if token.pos_ in ['NOUN', 'PROPN'] and len(token.text) > 2:
                     categories.append(token.text.capitalize())
@@ -1008,6 +1134,14 @@ class AIChatbot:
                 return self._generate_comparison_response(entities, recommendations, sentiment, session)
             elif intent == 'price_inquiry':
                 return self._generate_price_response(entities, recommendations, sentiment)
+            elif intent == 'trending_request':
+                return self._generate_trending_response(entities, recommendations, sentiment)
+            elif intent == 'rating_inquiry':
+                return self._generate_rating_response(entities, recommendations, sentiment)
+            elif intent == 'alternatives_request':
+                return self._generate_alternatives_response(entities, recommendations, sentiment)
+            elif intent == 'context_question':
+                return self._generate_context_response(entities, recommendations, sentiment)
             elif intent == 'sales_assistance':
                 return self._generate_sales_assistance_response(entities, sentiment)
             else:
@@ -1029,16 +1163,77 @@ class AIChatbot:
             products = Product.objects.filter(is_active=True)
             print(f"📦 Total active products: {products.count()}")
             filtered = False
+            # --- SALESPERSON-LIKE INTENT HANDLING ---
+            
             # --- Alternatives intent: recommend products in same category but different brands ---
-            if intent == 'alternatives_request' and entities.get('brands') and entities.get('categories'):
-                category_filter = Q()
-                for category in entities['categories']:
-                    category_filter |= Q(category__name__icontains=category)
-                products = products.filter(category_filter)
-                for brand in entities['brands']:
-                    products = products.exclude(name__icontains=brand)
-                print(f"🔄 After alternatives filter: {products.count()} products")
+            if intent == 'alternatives_request':
+                # If context has last product, find alternatives in same category
+                last_product_id = session_context.get('last_product_id')
+                if last_product_id:
+                    try:
+                        last_product = Product.objects.get(id=last_product_id)
+                        if last_product.category:
+                            products = products.filter(category=last_product.category)
+                            # Exclude the current product
+                            products = products.exclude(id=last_product_id)
+                            print(f"🔄 After alternatives filter (context): {products.count()} products")
+                            filtered = True
+                    except Product.DoesNotExist:
+                        pass
+                elif entities.get('brands') and entities.get('categories'):
+                    category_filter = Q()
+                    for category in entities['categories']:
+                        category_filter |= Q(category__name__icontains=category)
+                    products = products.filter(category_filter)
+                    for brand in entities['brands']:
+                        products = products.exclude(name__icontains=brand)
+                    print(f"🔄 After alternatives filter: {products.count()} products")
+                    filtered = True
+            
+            # --- Trending intent: show most viewed/popular products ---
+            elif intent == 'trending_request':
+                # Order by views (if available) or by creation date (newest first)
+                products = products.order_by('-created_at')[:10]
+                print(f"🔥 After trending filter: {products.count()} products")
                 filtered = True
+            
+            # --- Rating intent: show highly rated products ---
+            elif intent == 'rating_inquiry':
+                # Order by average rating (if available) or by review count
+                products = products.annotate(
+                    avg_rating=Avg('reviews__rating'),
+                    review_count=Count('reviews')
+                ).filter(review_count__gt=0).order_by('-avg_rating', '-review_count')
+                print(f"⭐ After rating filter: {products.count()} products")
+                filtered = True
+            
+            # --- Comparison intent: show multiple products for comparison ---
+            elif intent == 'comparison_request':
+                # Get more products for comparison (up to 5)
+                quantity = entities.get('quantity', 5)
+                if quantity is None:
+                    quantity = 5
+                products = products[:quantity]
+                print(f"⚖️ After comparison filter: {products.count()} products")
+                filtered = True
+            
+            # --- Sales assistance: show a variety of options ---
+            elif intent == 'sales_assistance':
+                # Show diverse options across categories
+                products = products.order_by('?')[:8]  # Random selection for variety
+                print(f"🛍️ After sales assistance filter: {products.count()} products")
+                filtered = True
+            
+            # --- Context questions: use last shown products ---
+            elif intent == 'context_question':
+                last_recs = session_context.get('last_recommendations', [])
+                if last_recs:
+                    # Return the last shown products for context
+                    product_ids = [rec.get('id') for rec in last_recs if rec.get('id')]
+                    if product_ids:
+                        products = products.filter(id__in=product_ids)
+                        print(f"📋 After context filter: {products.count()} products")
+                        filtered = True
             # Strict category filtering first
             if entities.get('categories'):
                 category_filter = Q()
@@ -1592,6 +1787,38 @@ class AIChatbot:
         import random
         return random.choice(assistance_responses)
     
+    def _generate_trending_response(self, entities: Dict, recommendations: List[Dict], sentiment: str) -> str:
+        """Generate AI-powered trending products response"""
+        if recommendations:
+            product_names = [rec.get('name') for rec in recommendations[:3]]
+            return f"🔥 Here are the hottest trending products right now: {', '.join(product_names)}. These are flying off the shelves! Would you like to see more trending items or get details about any of these?"
+        else:
+            return "🔥 I'm searching for the most popular and trending products for you! Let me find what's hot right now. Would you like to see trending items in specific categories?"
+    
+    def _generate_rating_response(self, entities: Dict, recommendations: List[Dict], sentiment: str) -> str:
+        """Generate AI-powered highly rated products response"""
+        if recommendations:
+            product_names = [rec.get('name') for rec in recommendations[:3]]
+            return f"⭐ Here are our highest-rated products with excellent customer reviews: {', '.join(product_names)}. These are customer favorites! Would you like to see more highly rated items or get detailed reviews?"
+        else:
+            return "⭐ I'm finding the best-rated products with top customer reviews for you! Let me show you what our customers love the most. What type of products are you interested in?"
+    
+    def _generate_alternatives_response(self, entities: Dict, recommendations: List[Dict], sentiment: str) -> str:
+        """Generate AI-powered alternatives response"""
+        if recommendations:
+            product_names = [rec.get('name') for rec in recommendations[:3]]
+            return f"🔄 Here are some great alternatives: {', '.join(product_names)}. These offer similar quality and features. Would you like me to compare them or show you more options?"
+        else:
+            return "🔄 I'm finding excellent alternatives for you! Let me show you similar products that might be even better. What specific features are you looking for?"
+    
+    def _generate_context_response(self, entities: Dict, recommendations: List[Dict], sentiment: str) -> str:
+        """Generate AI-powered contextual response"""
+        if recommendations:
+            product_names = [rec.get('name') for rec in recommendations[:2]]
+            return f"💡 Based on our conversation, here are some relevant options: {', '.join(product_names)}. These match your preferences perfectly! Would you like more details or to see other options?"
+        else:
+            return "💡 I'm here to help you find exactly what you need! Let me understand your preferences better. What specific features or qualities are you looking for?"
+    
     def _generate_general_response(self, intent: str, entities: Dict, recommendations: List[Dict], sentiment: str) -> str:
         """Generate general AI-powered response, always friendly and proactive"""
         import random
@@ -1682,21 +1909,25 @@ class AIChatbot:
     def train_models(self):
         """Retrain all AI models with latest data"""
         try:
-            logger.info("Starting model training...")
+            print("🔄 Starting model retraining...")
+            
+            # Generate new training data
+            training_data = self._generate_comprehensive_training_data()
+            train_data, test_data = self._split_data(training_data, test_size=0.2)
             
             # Retrain intent classifier
-            self._train_intent_classifier()
+            self._train_intent_classifier(train_data, test_data)
             
-            # Retrain entity extractor
-            self._train_entity_extractor()
+            # Save the retrained models
+            self._save_models()
             
-            # Rebuild recommendation model
-            self._build_recommendation_model()
+            # Evaluate the new models
+            self._evaluate_models(test_data)
             
-            logger.info("Model training completed successfully!")
+            print("✅ Model retraining completed successfully!")
             
         except Exception as e:
-            logger.error(f"Error training models: {e}")
+            print(f"❌ Error training models: {e}")
             raise
 
     def _extract_brands_simple(self, message: str) -> List[str]:
