@@ -31,7 +31,7 @@ class BlenderModelGenerator:
                 return blender_path
         
         # Your specific path
-        specific_path = r"C:\Users\Abdul Rehman\Downloads\blender-4.0.2-windows-x64\blender-4.0.2-windows-x64\blender.exe"
+        specific_path = "/home/abdullah/Applications/blender-4.0.2-linux-x64/blender"
         if os.path.exists(specific_path):
             return specific_path
         
