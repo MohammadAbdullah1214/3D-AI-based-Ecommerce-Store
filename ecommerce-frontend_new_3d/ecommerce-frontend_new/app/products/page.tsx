@@ -178,11 +178,18 @@ export default function ProductsPage() {
   }
 
   const handleAddToWishlist = async (product: Product) => {
+    if (!product || !product.id) {
+      toast({
+        title: "Error",
+        description: "Invalid product. Please try again.",
+        variant: "destructive",
+      })
+      return
+    }
     if (!isAuthenticated) {
       router.push("/login")
       return
     }
-
     if (user && product && (user.id === product.seller_id || user.username === product.seller_username)) {
       toast({
         title: "Not allowed",
@@ -191,7 +198,6 @@ export default function ProductsPage() {
       })
       return
     }
-
     try {
       await addWishlistItem({ product_id: Number(product.id) }).unwrap()
       toast({

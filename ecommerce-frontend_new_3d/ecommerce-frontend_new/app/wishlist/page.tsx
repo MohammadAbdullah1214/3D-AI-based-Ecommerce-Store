@@ -125,23 +125,7 @@ export default function WishlistPage() {
             ) : wishlistData && wishlistData.items && wishlistData.items.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                 {wishlistData.items.map((item: any) => (
-                  <div key={item.id} className="relative group">
-                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10 hover:shadow-2xl">
-                      <ProductCardListing product={item.product} />
-                      {!(user && item.product && user.id === item.product.seller_id) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/80 hover:bg-red-100 border border-red-200 text-red-500 hover:text-red-600 transition-all duration-300"
-                          onClick={() => handleRemoveWishlist(item.product_id, item.product, item)}
-                          disabled={isRemoving}
-                          aria-label="Remove from wishlist"
-                        >
-                          ✕
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  <ProductCardListing key={item.id} product={item.product_details || item.product} disableWishlistAction={true} />
                 ))}
               </div>
             ) : (

@@ -15,9 +15,10 @@ import { useAddToCartMutation } from '@/store/services/cartApi'
 
 interface ProductCardListingProps {
   product: Product
+  disableWishlistAction?: boolean
 }
 
-export function ProductCardListing({ product }: ProductCardListingProps) {
+export function ProductCardListing({ product, disableWishlistAction = false }: ProductCardListingProps) {
   // Robust to partial product objects (e.g., from wishlist)
   const prod = (product as any).product_details || product;
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -52,6 +53,7 @@ export function ProductCardListing({ product }: ProductCardListingProps) {
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation()
 
   const handleWishlistClick = async (e: React.MouseEvent) => {
+    if (disableWishlistAction) return;
     e.preventDefault()
     setError(null)
     if (!isAuthenticated) {
@@ -139,8 +141,10 @@ export function ProductCardListing({ product }: ProductCardListingProps) {
             showControls={false}
           />
 
-          {prod.discount_percent && prod.discount_percent > 0 && (
-            <Badge className="absolute top-2 left-2 bg-red-500">{prod.discount_percent}% OFF</Badge>
+          {prod.discount_price && prod.discount_price < prod.price && (
+            <Badge className="absolute top-2 left-2 bg-red-500">
+              Save ${Number(prod.price) - Number(prod.discount_price)}
+            </Badge>
           )}
 
           {prod.has_3d_model && (
@@ -152,11 +156,11 @@ export function ProductCardListing({ product }: ProductCardListingProps) {
 
           {/* Wishlist Button */}
           <button
-            className={`absolute top-2 right-2 z-40 p-1 rounded-full bg-white/80 hover:bg-pink-100 border border-gray-200 ${isWishlisted?.in_wishlist ? 'text-pink-500' : 'text-gray-400'}`}
+            className={`absolute top-2 right-2 z-40 p-1 rounded-full bg-white/80 border border-gray-200 ${isWishlisted?.in_wishlist ? 'text-pink-500' : 'text-gray-400'} ${disableWishlistAction ? 'cursor-not-allowed opacity-80' : 'hover:bg-pink-100'}`}
             onClick={handleWishlistClick}
-            disabled={isAdding || isRemoving}
-            aria-label={isWishlisted?.in_wishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-            title={isWishlisted?.in_wishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            disabled={disableWishlistAction || isAdding || isRemoving}
+            aria-label={isWishlisted?.in_wishlist ? 'In wishlist' : 'Add to wishlist'}
+            title={isWishlisted?.in_wishlist ? 'In wishlist' : 'Add to wishlist'}
           >
             <Heart fill={isWishlisted?.in_wishlist ? '#ec4899' : 'none'} className="w-5 h-5" />
           </button>
@@ -167,18 +171,30 @@ export function ProductCardListing({ product }: ProductCardListingProps) {
 
         <div className="p-4">
           <h3 className="font-medium text-gray-900 mb-1 truncate">{prod.name}</h3>
-          <div className="flex justify-between items-center">
-            <p className="font-bold text-gray-900">{formatPrice(prod.price)}</p>
-            {prod.average_rating && (
-              <div className="flex items-center">
-                <span className="text-yellow-500">★</span>
-                <span className="text-sm ml-1">
-                  {typeof prod.average_rating === "number"
-                    ? prod.average_rating.toFixed(1)
-                    : Number(prod.average_rating || 0).toFixed(1)}
+          <div className="flex items-center mb-3">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span key={star} className={`h-4 w-4 ${star <= Math.round(Number(prod.average_rating) || 0) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+            ))}
+            <span className="ml-2 text-sm text-gray-400">({prod.review_count || 0})</span>
+          </div>
+          <div className="mt-3">
+            <div className="flex items-baseline">
+              <span className="text-xl font-bold text-gray-900">
+                ${prod.discount_price && prod.discount_price < prod.price ? Number(prod.discount_price).toFixed(2) : Number(prod.price).toFixed(2)}
+              </span>
+              {prod.discount_price && prod.discount_price < prod.price && (
+                <span className="ml-3 text-base text-gray-500 line-through">
+                  ${Number(prod.price).toFixed(2)}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
+            <div className="text-sm text-gray-400 mt-2">
+              {prod.stock > 0 ? (
+                <span className="text-green-400">In stock</span>
+              ) : (
+                <span className="text-red-400">Out of stock</span>
+              )}
+            </div>
           </div>
           <button
             className="mt-3 w-full py-2 px-4 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"

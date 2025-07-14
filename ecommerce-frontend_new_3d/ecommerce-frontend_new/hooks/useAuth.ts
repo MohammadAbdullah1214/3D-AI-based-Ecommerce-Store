@@ -20,7 +20,7 @@ export function useAuth() {
   const [logoutMutation] = useLogoutMutation()
 
   const { data: currentUser, isLoading: isLoadingUser } = useGetMeQuery(undefined, {
-    skip: typeof window !== "undefined" && !localStorage.getItem("accessToken"),
+    skip: typeof window !== "undefined" && !localStorage.getItem("token"),
   })
 
   const login = async (username: string, password: string) => {
@@ -29,7 +29,7 @@ export function useAuth() {
       const result = await loginMutation({ username, password }).unwrap()
 
       // Save tokens to localStorage
-      localStorage.setItem("accessToken", result.access)
+      localStorage.setItem("token", result.access)
       localStorage.setItem("refreshToken", result.refresh)
 
       // Update Redux state
@@ -54,7 +54,7 @@ export function useAuth() {
       const result = await registerMutation(userData).unwrap()
 
       // Save tokens to localStorage
-      localStorage.setItem("accessToken", result.access)
+      localStorage.setItem("token", result.access)
       localStorage.setItem("refreshToken", result.refresh)
 
       // Update Redux state
@@ -81,7 +81,7 @@ export function useAuth() {
       console.error("Logout API call failed:", err)
     } finally {
       // Clear tokens from localStorage
-      localStorage.removeItem("accessToken")
+      localStorage.removeItem("token")
       localStorage.removeItem("refreshToken")
 
       // Clear Redux state
