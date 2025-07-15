@@ -20,9 +20,9 @@ import {
 import { Badge } from "../ui/badge"
 import { useSelector, useDispatch } from "react-redux"
 import type { RootState } from "../../store"
-import { logout } from "../../store/slices/authSlice"
 import { toggleSearch, toggleSidebar } from "../../store/slices/uiSlice"
 import { clearCart } from "@/store/slices/cartSlice"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -36,6 +36,7 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const itemCount = items.length
+  const { logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -46,9 +47,12 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const handleLogout = () => {
-    dispatch(logout())
-    dispatch(clearCart())
+  const handleLogout = async () => {
+    await logout();
+    // Optionally close sidebar if open
+    if (typeof window !== 'undefined') {
+      window.location.href = "/";
+    }
   }
 
   const handleSearch = (e: React.FormEvent) => {

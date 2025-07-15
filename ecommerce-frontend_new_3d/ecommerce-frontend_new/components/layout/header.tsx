@@ -23,6 +23,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useHasMounted } from "@/utils/client-utils"
 import CartIcon from "./cart-icon"
 import { clearCart } from "@/store/slices/cartSlice"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -34,6 +35,7 @@ export default function Header() {
   const dispatch = useDispatch()
   const hasMounted = useHasMounted()
   const router = useRouter()
+  const { logout } = useAuth();
 
   // Handle scroll effect for header
   useEffect(() => {
@@ -49,12 +51,9 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const handleLogout = () => {
-    dispatch(logout())
-    dispatch(clearCart())
-    localStorage.removeItem("token")
-    localStorage.removeItem("refreshToken")
-    router.push("/")
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
   }
 
   const handleSearch = (e: React.FormEvent) => {

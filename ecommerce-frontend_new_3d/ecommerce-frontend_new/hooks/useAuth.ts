@@ -10,6 +10,9 @@ import {
   type RegisterRequest,
 } from "../store/services/authApi"
 import { loginSuccess, logout as logoutAction } from "../store/slices/authSlice"
+import { clearCart } from "../store/slices/cartSlice"
+import { wishlistApi } from "../store/services/wishlistApi"
+import { cartApi } from "../store/services/cartApi"
 
 export function useAuth() {
   const dispatch = useDispatch()
@@ -83,9 +86,18 @@ export function useAuth() {
       // Clear tokens from localStorage
       localStorage.removeItem("token")
       localStorage.removeItem("refreshToken")
+      // Clear cart and wishlist from localStorage/sessionStorage
+      localStorage.removeItem("cart")
+      localStorage.removeItem("wishlist")
+      sessionStorage.removeItem("cart")
+      sessionStorage.removeItem("wishlist")
 
       // Clear Redux state
       dispatch(logoutAction())
+      dispatch(clearCart())
+      // Reset RTK Query caches for cart and wishlist
+      dispatch(cartApi.util.resetApiState())
+      dispatch(wishlistApi.util.resetApiState())
     }
   }
 
