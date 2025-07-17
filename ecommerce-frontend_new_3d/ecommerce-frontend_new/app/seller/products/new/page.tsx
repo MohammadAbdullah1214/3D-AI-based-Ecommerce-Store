@@ -209,21 +209,21 @@ export default function NewProductPage() {
   const overallLoading = isCreating
 
   // Separate selected files by type for preview
-  const previewImages = selectedFiles.images.map((file, idx) => ({
-    id: `image-${idx}`,
-    url: URL.createObjectURL(file),
-    file_type: "image",
-  }))
-  const previewVideos = selectedFiles.videos.map((file, idx) => ({
-    id: `video-${idx}`,
-    url: URL.createObjectURL(file),
-    file_type: "video",
-  }))
-  const previewModels = selectedFiles.models.map((file, idx) => ({
-    id: `model-${idx}`,
-    url: URL.createObjectURL(file),
-    file_type: "model",
-  }))
+  // const previewImages = selectedFiles.images.map((file, idx) => ({
+  //   id: `image-${idx}`,
+  //   url: URL.createObjectURL(file),
+  //   file_type: "image",
+  // }))
+  // const previewVideos = selectedFiles.videos.map((file, idx) => ({
+  //   id: `video-${idx}`,
+  //   url: URL.createObjectURL(file),
+  //   file_type: "video",
+  // }))
+  // const previewModels = selectedFiles.models.map((file, idx) => ({
+  //   id: `model-${idx}`,
+  //   url: URL.createObjectURL(file),
+  //   file_type: "model",
+  // }))
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#1D212D] via-[#2A2F3A] to-[#1D212D] relative">
@@ -246,67 +246,6 @@ export default function NewProductPage() {
       <HeaderWrapper>
         <div className="relative z-10 min-h-screen w-full p-4 md:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
-            {/* Product Media Preview */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="mb-8 space-y-6"
-            >
-              {/* Images Preview */}
-              {previewImages.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-2 text-white text-lg">Product Images</h3>
-                  <ProductGallery media={previewImages} productName={form.watch("name") || "Product"} />
-                </div>
-              )}
-
-              {/* 3D Models Preview */}
-              {previewModels.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-2 flex items-center gap-2 text-white text-lg">
-                    <CuboidIcon className="h-4 w-4" />
-                    3D Models
-                  </h3>
-                  <Simple3DViewer
-                    modelUrl={previewModels[0]?.url}
-                    productName={form.watch("name") || "Product"}
-                    isDefault={false}
-                    width={500}
-                    height={400}
-                    showControls={true}
-                    showARButton={true}
-                  />
-                </div>
-              )}
-
-              {/* Videos Preview */}
-              {previewVideos.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-2 flex items-center gap-2 text-white text-lg">
-                    <Play className="h-4 w-4" />
-                    Product Videos
-                  </h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    {previewVideos.slice(0, 2).map((video, index) => (
-                      <div
-                        key={index}
-                        className="relative aspect-video overflow-hidden rounded-md border border-white/20"
-                      >
-                        <video
-                          src={video.url}
-                          controls
-                          className="w-full h-full object-cover"
-                          poster="/placeholder.svg?height=200&width=300"
-                        >
-                          Your browser does not support the video tag.
-                        </video>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

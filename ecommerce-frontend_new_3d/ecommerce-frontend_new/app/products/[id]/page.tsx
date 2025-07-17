@@ -59,6 +59,13 @@ export default function ProductDetailPage() {
   const images = productMedia.filter(m => m.file_type === 'image');
   const videos = productMedia.filter(m => m.file_type === 'video');
   const models = productMedia.filter(m => m.file_type === 'model' || m.file_type === 'model_3d');
+  // Prefer .glb, fallback to .obj
+  let modelUrl = undefined;
+  if (models.length > 0) {
+    const glb = models.find(m => m.file && m.file.endsWith('.glb'));
+    const obj = models.find(m => m.file && m.file.endsWith('.obj'));
+    modelUrl = glb ? getBackendMediaUrl(glb.file) : (obj ? getBackendMediaUrl(obj.file) : undefined);
+  }
 
   // Prepare carousel images
   const carouselImages = images.length > 0
@@ -289,9 +296,9 @@ export default function ProductDetailPage() {
             {/* Back Button */}
             <div className="mb-6">
               <Button
-                variant="outline"
+                size="lg"
                 onClick={() => router.back()}
-                className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg bg-[#F3C998] hover:bg-[#E6B87D] px-8 py-4 rounded-xl border-0"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Products
@@ -342,19 +349,21 @@ export default function ProductDetailPage() {
                       <Cube className="h-5 w-5" style={{ color: "#F3C998" }} />
                       3D Model View
                     </h3>
-                    {models.map((model, idx) => (
+                    {modelUrl ? (
                       <Simple3DViewer
-                        key={model.id || idx}
-                        modelUrl={getBackendMediaUrl(model.file || model.url)}
+                        key={modelUrl}
+                        modelUrl={modelUrl}
                         productName={product.name}
-                        isDefault={true}
+                        isDefault={false}
                         width={500}
                         height={400}
                         showControls={true}
                         showARButton={true}
                         className="mb-4"
                       />
-                    ))}
+                    ) : (
+                      <div className="text-gray-400">No 3D model available.</div>
+                    )}
                   </div>
                 )}
 
@@ -479,7 +488,8 @@ export default function ProductDetailPage() {
                       className="flex-1 text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg text-lg py-6 rounded-xl border-0"
                       style={{ backgroundColor: "#F3C998" }}
                       onClick={handleAddToCart}
-                      disabled={isOutOfStock || isAddingToCart}
+                      disabled={isOutOfStock || isAddingToCart || (user && user.role === 'seller')}
+                      title={user && user.role === 'seller' ? 'Sellers cannot add products to cart' : ''}
                     >
                       {isAddingToCart ? (
                         <>
@@ -498,7 +508,8 @@ export default function ProductDetailPage() {
                       size="lg"
                       className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm py-6 bg-white/5 rounded-xl"
                       onClick={handleAddToWishlist}
-                      disabled={isAddingWishlist}
+                      disabled={isAddingWishlist || (user && user.role === 'seller')}
+                      title={user && user.role === 'seller' ? 'Sellers cannot add products to wishlist' : ''}
                     >
                       {isAddingWishlist ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className="h-5 w-5" />}
                     </Button>
@@ -605,11 +616,17 @@ export default function ProductDetailPage() {
                         <div className="space-y-3">
                           <div className="flex justify-between py-3 border-b border-white/10">
                             <span className="text-gray-400">Weight</span>
-                            <span className="text-white font-medium">N/A</span>
+                            <span className="text-white font-medium">
+                              {product.weight != null ? `${product.weight} kg` : "N/A"}
+                            </span>
                           </div>
                           <div className="flex justify-between py-3 border-b border-white/10">
                             <span className="text-gray-400">Dimensions</span>
-                            <span className="text-white font-medium">N/A</span>
+                            <span className="text-white font-medium">
+                              {(product.length != null || product.width != null || product.height != null)
+                                ? `${product.length ?? "-"} x ${product.width ?? "-"} x ${product.height ?? "-"} cm`
+                                : "N/A"}
+                            </span>
                           </div>
                           <div className="flex justify-between py-3 border-b border-white/10">
                             <span className="text-gray-400">Material</span>

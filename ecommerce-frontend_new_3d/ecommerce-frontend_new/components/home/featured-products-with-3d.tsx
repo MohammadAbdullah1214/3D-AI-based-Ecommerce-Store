@@ -89,6 +89,13 @@ export default function FeaturedProductsWith3D() {
             // Fallback to product images if no media from API
             const fallbackImage = product.image_urls?.[0]
 
+            // If no images, add a placeholder
+            const galleryMediaWithFallback = galleryMedia.length > 0 ? galleryMedia : [{
+              id: 'placeholder',
+              url: `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name)}`,
+              file_type: 'image',
+            }]
+
             // Calculate display price
             const displayPrice = product.discount_price
               ? typeof product.discount_price === "number"
@@ -111,7 +118,7 @@ export default function FeaturedProductsWith3D() {
               <Link key={product.id} href={`/products/${product.id}`}>
                 <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-lg shadow-md p-6 hover:shadow-2xl transition-all group hover:border-[#F3C998]/30">
                   <div className="aspect-square rounded-lg mb-4 overflow-hidden bg-white/5 relative">
-                    <ProductGallery media={galleryMedia} productName={product.name} />
+                    <ProductGallery media={galleryMediaWithFallback} productName={product.name} />
                   </div>
                   {models.length > 0 && (
                     <div className="mb-4">

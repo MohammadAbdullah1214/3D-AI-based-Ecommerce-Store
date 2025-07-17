@@ -110,6 +110,9 @@ class CartViewSet(viewsets.GenericViewSet):
     def add_item(self, request):
         """Add an item to the user's cart"""
         try:
+            # Prevent all sellers from adding any products to the cart
+            if hasattr(request.user, 'role') and request.user.role == 'seller':
+                return Response({"error": "Sellers cannot add products to the cart."}, status=status.HTTP_403_FORBIDDEN)
             # Get or create the cart
             cart, created = Cart.objects.get_or_create(customer=request.user)
             

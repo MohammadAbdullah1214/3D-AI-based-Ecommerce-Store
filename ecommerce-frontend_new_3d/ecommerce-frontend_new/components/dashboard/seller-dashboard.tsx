@@ -458,10 +458,10 @@ export default function SellerDashboard() {
                     </Table>
                     <div className="mt-6 flex justify-end">
                       <Button
-                        variant="outline"
                         size="lg"
-                        onClick={() => setActiveTab("orders")}
-                        className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                        className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
+                        style={{ backgroundColor: '#F3C998' }}
+                        onClick={() => setActiveTab('orders')}
                       >
                         View All Orders
                         <ArrowRight className="ml-2 h-5 w-5" />
@@ -531,10 +531,10 @@ export default function SellerDashboard() {
                     </Table>
                     <div className="mt-6 flex justify-end">
                       <Button
-                        variant="outline"
                         size="lg"
-                        onClick={() => setActiveTab("products")}
-                        className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                        className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
+                        style={{ backgroundColor: '#F3C998' }}
+                        onClick={() => setActiveTab('products')}
                       >
                         Manage Products
                         <ArrowRight className="ml-2 h-5 w-5" />
@@ -554,10 +554,10 @@ export default function SellerDashboard() {
                   </div>
                   <div className="flex space-x-4">
                     <Button
-                      variant="outline"
                       size="lg"
+                      className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
+                      style={{ backgroundColor: '#F3C998' }}
                       onClick={handleRefreshProducts}
-                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
                     >
                       Refresh
                     </Button>
@@ -608,7 +608,7 @@ export default function SellerDashboard() {
                               <TableCell className="font-medium text-white text-base">#{product.id}</TableCell>
                               <TableCell className="text-white text-base">{product.name}</TableCell>
                               <TableCell className="text-gray-300 text-base">
-                                {product.category_name || "Uncategorized"}
+                              {product.category_details?.name || "Uncategorized"}
                               </TableCell>
                               <TableCell>
                                 <Badge
@@ -684,10 +684,10 @@ export default function SellerDashboard() {
                   </div>
                   <div className="flex space-x-3">
                     <Button
-                      variant="outline"
                       size="lg"
+                      className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
+                      style={{ backgroundColor: '#F3C998' }}
                       onClick={() => refetch()}
-                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
                     >
                       Refresh
                     </Button>
@@ -796,10 +796,11 @@ export default function SellerDashboard() {
                                     <Button
                                       variant="outline"
                                       size="sm"
+                                      className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+                                      style={{ backgroundColor: '#F3C998' }}
                                       onClick={() => {
                                         alert(`Update status for order #${order.id}`)
                                       }}
-                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
                                     >
                                       Update
                                     </Button>

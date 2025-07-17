@@ -24,7 +24,7 @@ from .serializers import (
     WishlistSerializer, WishlistItemSerializer
 )
 from permissions import IsSellerOrAdmin, IsProductSeller
-from .utils import get_generation_status, create_generation_request_from_files
+from .utils.general import get_generation_status, create_generation_request_from_files
 from ai_3d_generation.models import GenerationRequest
 
 
@@ -80,6 +80,10 @@ class WishlistViewSet(viewsets.ModelViewSet):
         """
         Add a product to the wishlist
         """
+        # Prevent all sellers from adding any products to the wishlist
+        if hasattr(request.user, 'role') and request.user.role == 'seller':
+            return Response({'error': 'Sellers cannot add products to the wishlist.'}, status=status.HTTP_403_FORBIDDEN)
+        
         wishlist, created = Wishlist.objects.get_or_create(user=request.user)
         
         product_id = request.data.get('product_id')
@@ -605,7 +609,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        if self.action == 'list' or self.action == 'retrieve':
+        if self.action in ['list', 'retrieve']:
             # Allow anyone to view products
             return []
         elif self.action == 'create':
@@ -1120,6 +1124,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         Toggle a product in the user's wishlist
         """
+        # Prevent all sellers from toggling wishlist
+        if hasattr(request.user, 'role') and request.user.role == 'seller':
+            return Response({'error': 'Sellers cannot add products to the wishlist.'}, status=status.HTTP_403_FORBIDDEN)
+        
         product = self.get_object()
         wishlist, created = Wishlist.objects.get_or_create(user=request.user)
         

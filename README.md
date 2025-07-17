@@ -82,7 +82,8 @@ merged_project/
    ```bash
    cd merged_backend
    python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
+   linux: source venv/bin/activate  
+   Windows: venv\Scripts\activate
    pip install -r requirements.txt
    
    # Set up environment variables
@@ -110,15 +111,17 @@ merged_project/
 4. **Start Services:**
    ```bash
    # Terminal 1: Backend
-   cd merged_backend/backend
+   cd backend/backend
+   venv/Scripts/activate
    python manage.py runserver
    
    # Terminal 2: Celery Worker
-   cd merged_backend/backend
+   cd backend/backend
+   venv/Scripts/activate
    celery -A core worker --loglevel=info
    
    # Terminal 3: Frontend
-   cd merged_frontend
+   cd frontend
    npm run dev
    ```
 

@@ -47,8 +47,8 @@ export default function HeroWithProduct() {
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#F3C998]/5 rounded-full blur-3xl animate-pulse delay-500"></div>
 
       <div className="container mx-auto px-4 py-32 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-28 items-center">
-          <div className="text-center lg:text-left">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="flex flex-col items-center justify-center text-center lg:text-center lg:pr-0 w-full h-full min-h-[500px]">
             <Badge className="mb-8 py-3 px-6 text-lg bg-[#F3C998]/20 text-[#F3C998] border border-[#F3C998]/30 backdrop-blur-md">
               <Sparkles className="h-5 w-5 mr-2" /> Premium Collection 2025
             </Badge>
@@ -112,26 +112,27 @@ export default function HeroWithProduct() {
           </div>
 
           {/* Enhanced Glass Container for Product Display */}
-          <div className="relative flex justify-center lg:justify-end items-center min-h-[700px]">
+          <div className="relative flex justify-center lg:justify-start items-center min-h-[600px] h-full w-full">
             {/* Outer glow effect */}
             <div className="absolute -inset-8 bg-gradient-to-r from-[#F3C998]/30 via-[#F3C998]/20 to-[#F3C998]/30 rounded-3xl blur-3xl opacity-70 animate-pulse"></div>
 
             {/* Main glass container */}
-            <div className="relative w-full max-w-2xl w-[600px] h-[700px] rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative w-full h-[60vw] max-h-[700px] min-h-[400px] rounded-3xl overflow-hidden shadow-2xl flex items-center justify-center">
               {/* Glass effect layers */}
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-[#F3C998]/40 rounded-3xl"></div>
               <div className="absolute inset-0 bg-gradient-to-br from-[#F3C998]/10 to-transparent rounded-3xl"></div>
 
               {/* Inner content container */}
-              <div className="relative h-full w-full p-8 flex items-center justify-center">
-                <div className="w-full h-full rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm border border-[#F3C998]/30">
+              <div className="relative h-full w-full flex items-center justify-center p-4">
+                <div className="w-full h-full min-h-[300px] min-w-[300px] rounded-2xl overflow-hidden bg-white/5 backdrop-blur-sm border border-[#F3C998]/30 flex items-center justify-center">
                   {!isLoading && modelMedia ? (
                     <Simple3DViewer
                       modelUrl={getBackendMediaUrl(modelMedia.url)}
                       productName={featuredProduct?.name || "Product"}
                       isDefault={false}
-                      width={400}
-                      height={400}
+                      width={undefined}
+                      height={undefined}
+                      style={{ width: '100%', height: '100%' }}
                     />
                   ) : (
                     // Fallback to default 3D model
@@ -139,8 +140,9 @@ export default function HeroWithProduct() {
                       modelUrl={getBackendMediaUrl("/assets/3d/shirt.glb")}
                       productName={featuredProduct?.name || "Default Model"}
                       isDefault={true}
-                      width={400}
-                      height={400}
+                      width={undefined}
+                      height={undefined}
+                      style={{ width: '100%', height: '100%' }}
                     />
                   )}
                 </div>

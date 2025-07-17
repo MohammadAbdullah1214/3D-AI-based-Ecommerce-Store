@@ -6,131 +6,125 @@ from .blender_service import BlenderModelGenerator
 from .advanced_blender_service import AdvancedBlenderModelGenerator
 import logging
 import os
+import tempfile
+import shutil
+import subprocess
+from products.utils.image_processing import remove_background, extract_largest_contour
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 @shared_task(bind=True)
 def process_3d_generation(self, request_id, clothing_type='tshirt'):
     """
-    Process a 3D generation request using Blender
+    Process a 3D generation request using Blender (new pipeline: background removal, contour extraction, mesh generation)
     """
     logger.info(f"Starting 3D generation task for request {request_id} (clothing type: {clothing_type})")
-    
+    temp_dir = tempfile.mkdtemp()
     try:
         generation_request = GenerationRequest.objects.get(id=request_id)
         generation_request.status = 'processing'
         generation_request.started_at = timezone.now()
         generation_request.save()
-        
+
         logger.info(f"Found generation request: {generation_request.id}")
-        
-        # Choose generator based on detail level
-        if generation_request.detail_level == 'high':
-            # Use advanced generator for high detail
-            generator = AdvancedBlenderModelGenerator()
-        else:
-            # Use standard generator for low/medium detail
-            generator = BlenderModelGenerator()
-        
-        logger.info(f"Using generator: {type(generator).__name__}")
-        
-        # Prepare image data
+
         images = []
         for gen_image in generation_request.images.all():
             image_path = gen_image.image.path
             logger.info(f"Processing image: {image_path}")
-            
-            # Check if image file exists
             if not os.path.exists(image_path):
                 logger.error(f"Image file does not exist: {image_path}")
                 raise FileNotFoundError(f"Image file not found: {image_path}")
-            
+
+            # Remove background and extract contour
+            cleaned_img, mask = remove_background(image_path, method='auto')
+            contour = extract_largest_contour(mask)
+            if not contour or len(contour) < 3:
+                logger.error(f"No valid contour found in image: {image_path}")
+                raise ValueError(f"No valid contour found in image: {image_path}")
+
+            # Save cleaned image and contour as temp files
+            cleaned_img_path = os.path.join(temp_dir, f"cleaned_{gen_image.id}.png")
+            contour_path = os.path.join(temp_dir, f"contour_{gen_image.id}.npy")
+            cleaned_img.save(cleaned_img_path)
+            np_contour = np.array(contour)
+            np.save(contour_path, np_contour)
+
             images.append({
-                'path': image_path,
+                'cleaned_img_path': cleaned_img_path,
+                'contour_path': contour_path,
                 'angle': gen_image.detected_angle or gen_image.angle,
                 'order': gen_image.order
             })
-        
-        logger.info(f"Prepared {len(images)} images for processing")
-        
-        # Progress callback
-        def update_progress(stage, progress, message, estimated_time=None):
-            try:
-                generation_request.refresh_from_db()
-                generation_request.stage = stage
-                generation_request.progress = progress
-                generation_request.message = message
-                generation_request.estimated_time_remaining = estimated_time or ''
-                generation_request.save()
-                
-                # Log progress
-                GenerationProgress.objects.create(
-                    request=generation_request,
-                    stage=stage,
-                    progress=progress,
-                    message=message
-                )
-                
-                logger.info(f"Progress update: {stage} - {progress}% - {message}")
-            except Exception as e:
-                logger.error(f"Error updating progress: {e}")
-        
-        # Generate 3D model with clothing type
-        logger.info(f"Starting 3D model generation for {clothing_type}...")
-        result = generator.generate_3d_model(
-            images=images,
-            detail_level=generation_request.detail_level,
-            clothing_type=clothing_type,
-            progress_callback=update_progress
-        )
-        
-        logger.info(f"Generation result: {result}")
-        
-        if result['success']:
-            # Save generated model
-            generation_request.status = 'completed'
-            generation_request.progress = 100.0
-            generation_request.completed_at = timezone.now()
-            generation_request.polygon_count = result.get('polygon_count')
-            generation_request.file_size = result.get('file_size')
-            generation_request.generation_time = result.get('generation_time')
-            
-            # Save the generated file
-            model_path = result['model_path']
-            logger.info(f"Saving generated model from: {model_path}")
-            
-            if not os.path.exists(model_path):
-                raise FileNotFoundError(f"Generated model file not found: {model_path}")
-            
-            with open(model_path, 'rb') as f:
-                from django.core.files import File
-                # Determine file extension from the actual file
-                file_extension = os.path.splitext(model_path)[1]
-                filename = f"{generation_request.id}{file_extension}"
-                generation_request.generated_model_file.save(
-                    filename,
-                    File(f),
-                    save=False
-                )
-            
-            generation_request.save()
-            
-            # Create ProductImage entry for the generated model
-            from products.models import ProductImage
-            ProductImage.objects.create(
-                product=generation_request.product,
-                file=generation_request.generated_model_file,
-                file_type='model'
+
+        logger.info(f"Prepared {len(images)} cleaned images and contours for Blender processing")
+
+        # For now, use the first image for mesh generation (can be extended for multi-view)
+        img_info = images[0]
+        export_path = os.path.join(temp_dir, f"generated_{request_id}.obj")
+        blender_script = os.path.join(os.path.dirname(__file__), "blender_mesh_from_contour.py")
+        blender_exe = os.environ.get('BLENDER_EXECUTABLE_PATH') or getattr(
+            __import__('django.conf').conf.settings, 'BLENDER_EXECUTABLE_PATH', 'blender')
+
+        env = os.environ.copy()
+        env.update({
+            'CLEANED_IMAGE_PATH': img_info['cleaned_img_path'],
+            'EXPORT_PATH': export_path,
+            'HEIGHT': '5',
+            'SCALE': '1',
+            'CONTOUR_PATH': img_info['contour_path']
+        })
+
+        logger.info(f"Calling Blender for mesh generation: {blender_exe}")
+        result = subprocess.run([
+            blender_exe, '--background', '--python', blender_script
+        ], env=env, capture_output=True, text=True, timeout=300)
+
+        if result.returncode != 0:
+            logger.error(f"Blender failed: {result.stderr}")
+            raise RuntimeError(f"Blender failed: {result.stderr}")
+        logger.info(f"Blender output: {result.stdout}")
+
+        # Save generated model
+        if not os.path.exists(export_path):
+            raise FileNotFoundError(f"Generated model file not found: {export_path}")
+        with open(export_path, 'rb') as f:
+            from django.core.files import File
+            file_extension = os.path.splitext(export_path)[1]
+            filename = f"{generation_request.id}{file_extension}"
+            generation_request.generated_model_file.save(
+                filename,
+                File(f),
+                save=False
             )
-            
-            logger.info(f"3D generation completed for request {request_id} ({clothing_type})")
-        else:
-            error_msg = result.get('error', 'Unknown error')
-            logger.error(f"3D generation failed for request {request_id} ({clothing_type}): {error_msg}")
-            generation_request.status = 'failed'
-            generation_request.error_message = error_msg
-            generation_request.save()
-            
+        generation_request.status = 'completed'
+        generation_request.progress = 100.0
+        generation_request.completed_at = timezone.now()
+        generation_request.save()
+
+        # Create ProductImage entry for the generated model(s)
+        from products.models import ProductImage
+        # Register .glb if it exists
+        glb_path = export_path.replace('.obj', '.glb') if export_path.endswith('.obj') else export_path
+        if os.path.exists(glb_path) and glb_path.endswith('.glb'):
+            with open(glb_path, 'rb') as glb_file:
+                ProductImage.objects.create(
+                    product=generation_request.product,
+                    file=File(glb_file, name=os.path.basename(glb_path)),
+                    file_type='model',  # or 'model_3d' if you want to distinguish
+                    angle_tag=None
+                )
+        # Register .obj if it exists and is not the same as glb
+        if export_path.endswith('.obj') and os.path.exists(export_path):
+            with open(export_path, 'rb') as obj_file:
+                ProductImage.objects.create(
+                    product=generation_request.product,
+                    file=File(obj_file, name=os.path.basename(export_path)),
+                    file_type='model',
+                    angle_tag=None
+                )
+        logger.info(f"3D generation completed for request {request_id} ({clothing_type})")
     except Exception as e:
         logger.error(f"Error processing 3D generation {request_id} ({clothing_type}): {str(e)}")
         try:
@@ -140,3 +134,5 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
             generation_request.save()
         except Exception as save_error:
             logger.error(f"Error saving failed status: {save_error}")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)

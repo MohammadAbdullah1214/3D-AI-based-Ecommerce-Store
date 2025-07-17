@@ -10,11 +10,48 @@ import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
 import { useSelector } from "react-redux"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/useAuth"; 
 
 export default function CartPage() {
   const { isAuthenticated } = useSelector((state: any) => state.auth)
   const router = useRouter()
   const { data: cart, isLoading, error } = useGetCartQuery()
+  const { currentUser } = useAuth();
+  if (currentUser && currentUser.role === "seller") {
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-[#1D212D] via-[#2A2F3A] to-[#1D212D] relative">
+        <div className="fixed inset-0 opacity-5">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
+                             radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+            }}
+          ></div>
+        </div>
+        <HeaderWrapper>
+          <div className="relative z-10 min-h-screen w-full p-4 md:p-8 flex items-center justify-center">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-12 shadow-2xl text-center max-w-md">
+              <div className="text-red-400 text-6xl mb-6">⚠️</div>
+              <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
+              <p className="text-gray-300 mb-8">Sellers cannot access the cart page.</p>
+              <Link href="/products">
+                <Button
+                  size="lg"
+                  className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+                  style={{ backgroundColor: "#F3C998" }}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Products
+                </Button>
+              </Link>
+            </div>
+          </div>
+          <Footer />
+        </HeaderWrapper>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     if (typeof window !== "undefined") {
