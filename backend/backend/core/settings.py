@@ -2,13 +2,19 @@ import os
 from pathlib import Path
 from datetime import timedelta
 import environ
+import ssl
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-env = environ.Env()
-env.read_env(os.path.join(BASE_DIR, '.env'))
+# Try to load .env and print a warning if not found
+ENV_PATH = os.path.join(BASE_DIR, '.env')
+if not os.path.exists(ENV_PATH):
+    print(f"WARNING: .env file not found at {ENV_PATH}. Environment variables may be missing.")
 
-SECRET_KEY = env('DJANGO_SECRET_KEY')
-DEBUG = env('DEBUG', default=True)
+env = environ.Env()
+env.read_env(ENV_PATH)
+
+SECRET_KEY = env('DJANGO_SECRET_KEY', default='changeme-in-prod')
+DEBUG = env.bool('DEBUG', default=True)
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
 INSTALLED_APPS = [
@@ -20,22 +26,20 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
-    
     # Third-party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
-    'celery',  # Add this line
-    
-    # Local apps - order matters for dependencies
+    'celery',
+    # Local apps
     'core.apps.CoreConfig',
-    'users',  # First because other apps depend on it
-    'products',  # Second because carts and orders depend on it
-    'ai_3d_generation',  # Add this line
-    'carts',  # Third because orders depend on it
-    'shipping',  # Depends on users and products
-    'orders',  # Depends on users, products, and carts
-    'analytics',  # Last because it might depend on other apps
+    'users',
+    'products',
+    'ai_3d_generation',
+    'carts',
+    'shipping',
+    'orders',
+    'analytics',
     'payments',
     'qna',
     'chatbot',
@@ -73,16 +77,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST'),
-        'PORT': env('DB_PORT'),
+# --- DATABASES ---
+# Use DATABASE_URL from .env (Supabase style)
+try:
+    DATABASES = {
+        'default': env.db(),
     }
-}
+except Exception as e:
+    print("\nERROR: Could not configure database from DATABASE_URL.\n" \
+          "Check your .env file for DATABASE_URL.\n" \
+          f"Details: {e}\n")
+    raise
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -159,6 +164,7 @@ SPECTACULAR_SETTINGS = {
 SITE_ID = 1
 
 # Celery Configuration - Windows optimized
+# Celery/Redis settings (Upstash)
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
@@ -166,12 +172,16 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+# Upstash/Redis SSL config
+CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
+CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
+
 # Windows-specific Celery settings
 if os.name == 'nt':  # Windows
     CELERY_WORKER_POOL = 'solo'
     CELERY_WORKER_CONCURRENCY = 1
 
 # 3D Generation Settings
-BLENDER_EXECUTABLE_PATH = r"C:\Users\rehman.memon\Downloads\blender-4.0.2-windows-x64\blender.exe"
+BLENDER_EXECUTABLE_PATH = r"/home/abdullah/Applications/blender-4.0.2-linux-x64/blender"
 MAX_GENERATION_QUEUE_SIZE = env('MAX_GENERATION_QUEUE_SIZE', default=10)
 GENERATION_TIMEOUT_MINUTES = env('GENERATION_TIMEOUT_MINUTES', default=30)
