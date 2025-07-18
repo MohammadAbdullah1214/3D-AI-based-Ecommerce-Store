@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useRegisterMutation } from "@/store/services/authApi"
@@ -10,11 +10,25 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Loader2, CheckCircle, Eye, EyeOff, User, ShoppingBag } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { AlertCircle, Loader2, CheckCircle, Eye, EyeOff, User, ShoppingBag, Check, X, Shield, Lock } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
+
+interface PasswordRequirement {
+  label: string
+  test: (password: string) => boolean
+  met: boolean
+}
+
+interface PasswordStrength {
+  score: number
+  label: string
+  color: string
+  requirements: PasswordRequirement[]
+}
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -26,12 +40,92 @@ export default function RegisterPage() {
     lastName: "",
     role: "customer" as "customer" | "seller",
   })
+
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
+    score: 0,
+    label: "Very Weak",
+    color: "#ef4444",
+    requirements: [],
+  })
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
+
   const router = useRouter()
   const [register, { isLoading }] = useRegisterMutation()
+
+  const passwordRequirements: PasswordRequirement[] = [
+    {
+      label: "At least 8 characters long",
+      test: (password: string) => password.length >= 8,
+      met: false,
+    },
+    {
+      label: "Contains uppercase letter (A-Z)",
+      test: (password: string) => /[A-Z]/.test(password),
+      met: false,
+    },
+    {
+      label: "Contains lowercase letter (a-z)",
+      test: (password: string) => /[a-z]/.test(password),
+      met: false,
+    },
+    {
+      label: "Contains number (0-9)",
+      test: (password: string) => /\d/.test(password),
+      met: false,
+    },
+    {
+      label: "Contains special character (!@#$%^&*)",
+      test: (password: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+      met: false,
+    },
+  ]
+
+  const calculatePasswordStrength = (password: string): PasswordStrength => {
+    const requirements = passwordRequirements.map((req) => ({
+      ...req,
+      met: req.test(password),
+    }))
+
+    const metRequirements = requirements.filter((req) => req.met).length
+    const score = (metRequirements / requirements.length) * 100
+
+    let label = "Very Weak"
+    let color = "#ef4444"
+
+    if (score >= 80) {
+      label = "Very Strong"
+      color = "#22c55e"
+    } else if (score >= 60) {
+      label = "Strong"
+      color = "#84cc16"
+    } else if (score >= 40) {
+      label = "Medium"
+      color = "#f59e0b"
+    } else if (score >= 20) {
+      label = "Weak"
+      color = "#f97316"
+    }
+
+    return {
+      score,
+      label,
+      color,
+      requirements,
+    }
+  }
+
+  useEffect(() => {
+    if (formData.password) {
+      setPasswordStrength(calculatePasswordStrength(formData.password))
+      setShowPasswordRequirements(true)
+    } else {
+      setShowPasswordRequirements(false)
+    }
+  }, [formData.password])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -47,14 +141,23 @@ export default function RegisterPage() {
       setError("Passwords do not match")
       return false
     }
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long")
+
+    const strength = calculatePasswordStrength(formData.password)
+    if (strength.score < 60) {
+      setError("Password is too weak. Please meet at least 3 requirements for a stronger password.")
       return false
     }
+
     if (!formData.email.includes("@")) {
       setError("Please enter a valid email address")
       return false
     }
+
+    if (formData.username.length < 3) {
+      setError("Username must be at least 3 characters long")
+      return false
+    }
+
     return true
   }
 
@@ -76,9 +179,7 @@ export default function RegisterPage() {
         last_name: formData.lastName,
       }).unwrap()
 
-      // Show success message
       setSuccess(true)
-      // Redirect to login page after a short delay
       setTimeout(() => {
         router.push("/login?registered=true")
       }, 2000)
@@ -152,7 +253,7 @@ export default function RegisterPage() {
                 Welcome Aboard!
               </CardTitle>
               <CardDescription className="text-center text-white/80 text-base leading-relaxed">
-                Your account has been created successfully. You'll be redirected to sign in shortly.
+                Your secure account has been created successfully. You'll be redirected to sign in shortly.
               </CardDescription>
             </CardHeader>
             <CardFooter className="flex justify-center pt-4 pb-8">
@@ -178,40 +279,27 @@ export default function RegisterPage() {
         className="min-h-screen relative overflow-hidden flex items-center justify-center px-4 py-8"
         style={{ backgroundColor: "#1D212D" }}
       >
-        {/* Brand-colored background elements */}
+        {/* Enhanced background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Decorative circles and stars */}
-          <div
-            className="absolute top-20 left-20 w-4 h-4 rounded-full opacity-30"
-            style={{ backgroundColor: "#F3C998" }}
-          ></div>
-          <div
-            className="absolute top-32 right-32 w-2 h-2 rounded-full opacity-40"
-            style={{ backgroundColor: "#F3C998" }}
-          ></div>
-          <div
-            className="absolute bottom-40 left-40 w-3 h-3 rounded-full opacity-25"
-            style={{ backgroundColor: "#F3C998" }}
-          ></div>
+          {/* Security-themed decorative elements */}
+          <div className="absolute top-20 left-20">
+            <Shield className="w-6 h-6 opacity-10" style={{ color: "#F3C998" }} />
+          </div>
+          <div className="absolute top-32 right-32">
+            <Lock className="w-4 h-4 opacity-15" style={{ color: "#F3C998" }} />
+          </div>
+          <div className="absolute bottom-40 left-40">
+            <Shield className="w-5 h-5 opacity-12" style={{ color: "#F3C998" }} />
+          </div>
+
+          {/* Existing decorative elements */}
           <div
             className="absolute top-1/2 right-20 w-6 h-6 rounded-full opacity-20"
             style={{ backgroundColor: "#F3C998" }}
           ></div>
-
-          {/* Star shapes */}
           <div className="absolute top-24 right-24">
             <div
               className="w-3 h-3 opacity-30"
-              style={{
-                backgroundColor: "#F3C998",
-                clipPath:
-                  "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
-              }}
-            ></div>
-          </div>
-          <div className="absolute bottom-32 right-16">
-            <div
-              className="w-4 h-4 opacity-25"
               style={{
                 backgroundColor: "#F3C998",
                 clipPath:
@@ -223,16 +311,13 @@ export default function RegisterPage() {
 
         {/* Left side illustrated elements */}
         <div className="absolute left-0 top-0 bottom-0 w-1/2 hidden lg:block overflow-hidden">
-          {/* Shopping elements */}
           <div className="absolute bottom-32 left-20">
             <div className="relative">
-              {/* Shopping bag */}
               <div className="w-12 h-14 border-2 rounded-b-lg opacity-20" style={{ borderColor: "#F3C998" }}></div>
               <div
                 className="absolute -top-2 left-2 w-8 h-4 border-2 border-b-0 rounded-t-lg opacity-20"
                 style={{ borderColor: "#F3C998" }}
               ></div>
-              {/* Handles */}
               <div
                 className="absolute top-0 left-1 w-2 h-3 border-2 border-b-0 rounded-t-full opacity-25"
                 style={{ borderColor: "#F3C998" }}
@@ -243,8 +328,6 @@ export default function RegisterPage() {
               ></div>
             </div>
           </div>
-
-          {/* Abstract geometric shapes */}
           <div
             className="absolute bottom-20 left-32 w-12 h-12 opacity-10 transform rotate-45"
             style={{ backgroundColor: "#F3C998" }}
@@ -257,17 +340,13 @@ export default function RegisterPage() {
 
         {/* Right side illustrated elements */}
         <div className="absolute right-0 top-0 bottom-0 w-1/2 hidden lg:block overflow-hidden">
-          {/* Store/marketplace illustration */}
           <div className="absolute bottom-32 right-24">
             <div className="relative">
-              {/* Store front */}
               <div className="w-16 h-12 border-2 rounded-lg opacity-20" style={{ borderColor: "#F3C998" }}></div>
-              {/* Awning */}
               <div
                 className="absolute -top-2 -left-1 w-18 h-4 rounded-t-lg opacity-15"
                 style={{ backgroundColor: "#F3C998" }}
               ></div>
-              {/* Windows */}
               <div
                 className="absolute top-2 left-2 w-3 h-3 rounded opacity-25"
                 style={{ backgroundColor: "#F3C998" }}
@@ -276,15 +355,12 @@ export default function RegisterPage() {
                 className="absolute top-2 right-2 w-3 h-3 rounded opacity-25"
                 style={{ backgroundColor: "#F3C998" }}
               ></div>
-              {/* Door */}
               <div
                 className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-6 rounded-t opacity-20"
                 style={{ backgroundColor: "#F3C998" }}
               ></div>
             </div>
           </div>
-
-          {/* Abstract shapes */}
           <div
             className="absolute top-32 right-20 w-10 h-10 opacity-10 rounded-full"
             style={{ backgroundColor: "#F3C998" }}
@@ -305,13 +381,13 @@ export default function RegisterPage() {
                 className="w-12 h-12 backdrop-blur-sm rounded-xl flex items-center justify-center mb-4 mx-auto shadow-lg border border-white/20"
                 style={{ backgroundColor: "#F3C998" }}
               >
-                <div className="w-6 h-6 rounded-md" style={{ backgroundColor: "#1D212D" }}></div>
+                <Shield className="w-6 h-6" style={{ color: "#1D212D" }} />
               </div>
               <CardTitle className="text-3xl font-bold text-center text-white drop-shadow-lg">
-                Join Our Marketplace
+                Join Our Secure Marketplace
               </CardTitle>
               <CardDescription className="text-center text-white/80 text-base">
-                Create your account to start buying or selling
+                Create your account with enhanced security features
               </CardDescription>
             </CardHeader>
 
@@ -336,9 +412,21 @@ export default function RegisterPage() {
                     value={formData.username}
                     onChange={handleChange}
                     required
-                    placeholder="Choose a unique username"
+                    placeholder="Choose a unique username (min 3 characters)"
                     className="h-12 bg-white/5 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-white/20 transition-all duration-200 text-base text-white placeholder:text-white/60"
                   />
+                  {formData.username && formData.username.length < 3 && (
+                    <p className="text-xs text-red-300 flex items-center gap-1">
+                      <X className="w-3 h-3" />
+                      Username must be at least 3 characters long
+                    </p>
+                  )}
+                  {formData.username && formData.username.length >= 3 && (
+                    <p className="text-xs text-green-300 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Username looks good
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -389,8 +477,9 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="password" className="text-sm font-semibold text-white/90">
+                  <Label htmlFor="password" className="text-sm font-semibold text-white/90 flex items-center gap-2">
                     Password *
+                    <Shield className="w-4 h-4" style={{ color: "#F3C998" }} />
                   </Label>
                   <div className="relative">
                     <Input
@@ -418,7 +507,42 @@ export default function RegisterPage() {
                       <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
                     </Button>
                   </div>
-                  <p className="text-xs text-white/70 font-medium">Password must be at least 8 characters long</p>
+
+                  {/* Password Strength Indicator */}
+                  {showPasswordRequirements && (
+                    <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-white/80">Password Strength:</span>
+                        <span className="text-xs font-semibold" style={{ color: passwordStrength.color }}>
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      <Progress
+                        value={passwordStrength.score}
+                        className="h-2 bg-white/10"
+                        style={
+                          {
+                            "--progress-foreground": passwordStrength.color,
+                          } as React.CSSProperties
+                        }
+                      />
+
+                      {/* Password Requirements Checklist */}
+                      <div className="space-y-2 p-3 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10">
+                        <p className="text-xs font-medium text-white/80 mb-2">Password Requirements:</p>
+                        {passwordStrength.requirements.map((req, index) => (
+                          <div key={index} className="flex items-center gap-2 text-xs">
+                            {req.met ? (
+                              <Check className="w-3 h-3 text-green-400 flex-shrink-0" />
+                            ) : (
+                              <X className="w-3 h-3 text-red-400 flex-shrink-0" />
+                            )}
+                            <span className={req.met ? "text-green-300" : "text-white/60"}>{req.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -451,6 +575,18 @@ export default function RegisterPage() {
                       <span className="sr-only">{showConfirmPassword ? "Hide password" : "Show password"}</span>
                     </Button>
                   </div>
+                  {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                    <p className="text-xs text-red-300 flex items-center gap-1">
+                      <X className="w-3 h-3" />
+                      Passwords do not match
+                    </p>
+                  )}
+                  {formData.confirmPassword && formData.password === formData.confirmPassword && formData.password && (
+                    <p className="text-xs text-green-300 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Passwords match
+                    </p>
+                  )}
                 </div>
 
                 <Separator className="my-6 bg-white/20" />
@@ -507,19 +643,29 @@ export default function RegisterPage() {
               <CardFooter className="flex flex-col space-y-6 px-8 pb-8">
                 <Button
                   type="submit"
-                  className="w-full h-12 backdrop-blur-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20"
+                  className="w-full h-12 backdrop-blur-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
-                  disabled={isLoading}
+                  disabled={isLoading || passwordStrength.score < 60}
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Creating your account...
+                      Creating your secure account...
                     </>
                   ) : (
-                    "Create Account"
+                    <>
+                      <Shield className="mr-2 h-5 w-5" />
+                      Create Secure Account
+                    </>
                   )}
                 </Button>
+
+                {passwordStrength.score < 60 && formData.password && (
+                  <p className="text-xs text-center text-yellow-300 flex items-center justify-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Please create a stronger password to continue
+                  </p>
+                )}
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
