@@ -1,6 +1,6 @@
 {
   "build": {
-    "dockerfilePath": "backend/backend/Dockerfile",
-    "context": "backend/backend"
+    "context": "backend/backend",
+    "dockerfilePath": "backend/backend/Dockerfile.django"
   }
 }
