@@ -16,7 +16,7 @@ services:
   celery:
     build:
       context: .
-      dockerfile: Dockerfile.django
+      dockerfile: Dockerfile.celery
     command: celery -A core worker --loglevel=info
     volumes:
       - .:/app

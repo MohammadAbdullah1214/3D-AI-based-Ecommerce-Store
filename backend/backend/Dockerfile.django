@@ -3,8 +3,10 @@ FROM python:3.11-slim
 # Set work directory
 WORKDIR /app
 
-# Install distutils (and any other system dependencies you need)
-RUN apt-get update && apt-get install -y python3-distutils
+# Install system dependencies for Python builds
+RUN apt-get update && \
+    apt-get install -y python3-distutils build-essential gcc && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY requirements.txt .
