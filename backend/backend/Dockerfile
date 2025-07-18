@@ -1,3 +1,4 @@
+# Base image
 FROM ubuntu:22.04
 
 # Install dependencies
@@ -12,11 +13,16 @@ RUN wget https://download.blender.org/release/Blender${BLENDER_VERSION%.*}/blend
     mv blender-${BLENDER_VERSION}-linux-x64 /opt/blender && \
     ln -s /opt/blender/blender /usr/local/bin/blender
 
-# Set up working directory
+# Set working directory
 WORKDIR /app
 
-# Copy requirements and code
-COPY requirements.txt /app/requirements.txt
+# Copy requirements file and install dependencies
+COPY requirements.txt .
+
+RUN pip3 install --upgrade pip && \
+    pip3 install -r requirements.txt
+
+# Copy Django apps and project files
 COPY ai_3d_generation /app/ai_3d_generation
 COPY core /app/core
 COPY products /app/products
@@ -29,15 +35,15 @@ COPY payments /app/payments
 COPY qna /app/qna
 COPY chatbot /app/chatbot
 
-# Install Python dependencies
-RUN pip3 install --upgrade pip && pip3 install -r /app/requirements.txt
+# Copy manage.py and other root-level files if needed
+COPY manage.py .
 
-# Set environment variables for Django settings if needed
+# Set environment variable for Django
 ENV DJANGO_SETTINGS_MODULE=core.settings
 
-# Healthcheck (optional)
+# Optional health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD pgrep -f 'celery worker' || exit 1
 
-# Entrypoint: run Celery worker
-CMD ["celery", "-A", "core", "worker", "--loglevel=info"] 
+# Start Celery worker with Blender support
+CMD ["celery", "-A", "core", "worker", "--loglevel=info"]
