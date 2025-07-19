@@ -42,12 +42,11 @@ cd 3D-AI-based-Ecommerce-Store
 create a file in root directory named .env
 and add this
 DJANGO_SECRET_KEY=a9ogFLVgYPEHU-7yxnLbA07lJn1w613I7NxtTNwKq9J-SKof2Xot48NwQ5YFy2gQ850
-DEBUG=True
-DB_NAME=django_db
-DB_USER=postgres
-DB_PASSWORD=1234
-DB_HOST=localhost
-DB_PORT=5432
+DEBUG=False
+DATABASE_URL=postgresql://postgres:3dteam%40db123@db.gmxrvtrwjjiyvrqhwwmt.supabase.co:5432/postgres
+ALLOWED_HOSTS=127.0.0.1,localhost,.vercel.app
+CELERY_BROKER_URL=rediss://default:Ab2XAAIjcDE1MzQ0Y2ZmOTM0MDg0ZTEyYTdhMjJmN2Y4YzRlNDQ4YXAxMA@special-leech-48535.upstash.io:6379
+CELERY_RESULT_BACKEND=rediss://default:Ab2XAAIjcDE1MzQ0Y2ZmOTM0MDg0ZTEyYTdhMjJmN2Y4YzRlNDQ4YXAxMA@special-leech-48535.upstash.io:6379
 
 ### 2. Set Up Python Environment
 ```bash
@@ -65,28 +64,6 @@ pip install -r requirements.txt
 If requirements.txt is not available, manually install the required packages:
 pip install django djangorestframework djangorestframework-simplejwt drf-spectacular pillow psycopg psycopg2 django-allauth drf-spectacular djangorestframework-simplejwt django djangorestframework django-cors-headers django-environ environ  
 
-For windows, change the core/settings.py file and add these three line below imports
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-env = environ.Env()
-env.read_env(os.path.join(BASE_DIR, '.env'))
-
-in place of
-env = environ.Env()
-
-environ.Env.read_env()
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-python -m spacy download en_core_web_sm
-```
-### 3. Database Setup
-```bash
-Run the following commands to set up the database:
-Open pgadmin 4 and create a new database named "django_db"
-python manage.py makemigrations  
-python manage.py migrate  
-```
-
 del chatbot\ai_models\intent_classifier.pkl
    del chatbot\ai_models\vectorizer.pkl
 
@@ -95,45 +72,14 @@ del chatbot\ai_models\intent_classifier.pkl
    from chatbot.ai_chatbot import AIChatbot
 bot = AIChatbot()
 
-
-### 4. Create Admin User
-```bash
-Create a superuser account for admin access:
-python manage.py createsuperuser  
-Follow the prompts to set a username, email, and password.
-```
-### 5. Create Test Users (Optional)
-```bash
-You can create test users for different roles using the Django shell:
-python manage.py shell  
-
-Then, run the following script:
-from users.models import CustomUser
-
-# Create a seller  
-CustomUser.objects.create_user(  
-    username='seller1',  
-    email='seller1@example.com',  
-    password='sellerpass123',  
-    role='seller'  
-)  
-
-# Create a customer  
-CustomUser.objects.create_user(  
-    username='customer1',  
-    email='customer1@example.com',  
-    password='customerpass123',  
-    role='customer'  
-)  
-
-exit()  
-```
-
-### 6. Run the Development Server
+### 3. Run the Development Server
 ```bash
 python manage.py runserver  
 Access the site at: http://127.0.0.1:8000/
 ```
+
+admin account id : admin
+admin account password : 1234
 
 ###  Project Structure
 3D-AI-based-Ecommerce-Store/  
@@ -166,11 +112,13 @@ The system supports role-based access control with different permissions:
 
     Access analytics for their products
 
+    Limited access to customer features
+
 #### Customer Role
 
     Browse products and view 3D models
 
-    Add products to cart
+    Add products to cart and wishlist
 
     Place and track orders
 
@@ -189,24 +137,3 @@ Permission issues	Run Command Prompt as Administrator
 
 ### License
 This project is open-source and available under the MIT License.
-
-## Wishlist API
-
-- `GET /api/wishlist/my_wishlist/` — Get or create the current user's wishlist
-- `POST /api/wishlist/add_item/` — Add a product to the wishlist (body: product_id, variant_id [optional], notes [optional])
-- `POST /api/wishlist/remove_item/` — Remove a product from the wishlist (body: product_id, variant_id [optional])
-- `GET /api/wishlist/check_product/?product_id=...` — Check if a product is in the wishlist
-
-## Products API
-
-Each product response now includes:
-- `category`: Category details
-- `variants`: List of product variants
-- `images`: List of product images (with file path)
-- `reviews`: List of product reviews
-
-## Checkout API
-
-- `POST /api/orders/` — Create a new order (checkout)
-  - Required fields: items, shipping info, payment info, etc.
-  - Returns the created order details or error if invalid

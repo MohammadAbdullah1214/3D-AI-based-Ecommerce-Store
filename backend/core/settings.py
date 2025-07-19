@@ -182,6 +182,6 @@ if os.name == 'nt':  # Windows
     CELERY_WORKER_CONCURRENCY = 1
 
 # 3D Generation Settings
-BLENDER_EXECUTABLE_PATH = r"/home/abdullah/Applications/blender-4.0.2-linux-x64/blender"
+BLENDER_EXECUTABLE_PATH = r"C:/Users/Abdul Rehman/Downloads/blender-4.0.2-windows-x64/blender.exe"
 MAX_GENERATION_QUEUE_SIZE = env('MAX_GENERATION_QUEUE_SIZE', default=10)
 GENERATION_TIMEOUT_MINUTES = env('GENERATION_TIMEOUT_MINUTES', default=30)
