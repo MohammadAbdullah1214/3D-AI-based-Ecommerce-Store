@@ -65,9 +65,19 @@ class CategorySerializer(serializers.ModelSerializer):
     """
     Serializer for product categories
     """
+    image_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = Category
-        fields = ['id', 'name', 'description', 'parent', 'image']
+        fields = ['id', 'name', 'description', 'parent', 'image', 'image_url']
+    
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
 
 class ReviewSerializer(serializers.ModelSerializer):

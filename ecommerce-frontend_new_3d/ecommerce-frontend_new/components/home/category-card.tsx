@@ -19,6 +19,7 @@ export default function CategoryCard({ name, image, count, href }: CategoryCardP
             alt={name}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            unoptimized={image?.startsWith('http')}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#1D212D]/90 to-transparent flex items-end">
             <CardContent className="p-4 text-white">

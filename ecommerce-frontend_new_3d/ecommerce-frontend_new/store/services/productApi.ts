@@ -198,11 +198,28 @@ export const productApi = api.injectEndpoints({
           : [{ type: "Product", id: "LIST" }],
     }),
     // Add category creation endpoint for admin
-    createCategory: builder.mutation<Category, { name: string; description?: string; parent_id?: number; image_url?: string }>({
+    createCategory: builder.mutation<Category, FormData>({
       query: (categoryData) => ({
         url: "products/categories/",
         method: "POST",
         body: categoryData,
+      }),
+      invalidatesTags: ["Category"],
+    }),
+    // Add category update endpoint for admin
+    updateCategory: builder.mutation<Category, { id: number; formData: FormData }>({
+      query: ({ id, formData }) => ({
+        url: `products/categories/${id}/`,
+        method: "PATCH",
+        body: formData,
+      }),
+      invalidatesTags: ["Category"],
+    }),
+    // Add category delete endpoint for admin
+    deleteCategory: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `products/categories/${id}/`,
+        method: "DELETE",
       }),
       invalidatesTags: ["Category"],
     }),
@@ -226,4 +243,6 @@ export const {
   useCancelGenerationMutation,
   useGetLowStockProductsQuery,
   useCreateCategoryMutation,
+  useUpdateCategoryMutation,
+  useDeleteCategoryMutation,
 } = productApi

@@ -23,7 +23,7 @@ from .serializers import (
     ProductVariantOptionSerializer, ProductVariantSerializer,
     WishlistSerializer, WishlistItemSerializer
 )
-from permissions import IsSellerOrAdmin, IsProductSeller
+from permissions import IsSellerOrAdmin, IsProductSeller, IsAdmin
 from .utils.general import get_generation_status, create_generation_request_from_files
 from ai_3d_generation.models import GenerationRequest
 
@@ -212,7 +212,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsSellerOrAdmin()]
+            return [IsAdmin()]
         elif self.action in ['my_categories']:
             return [IsAuthenticated()]
         return super().get_permissions()

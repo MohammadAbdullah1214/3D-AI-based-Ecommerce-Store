@@ -13,6 +13,7 @@ import { Users, ShoppingBag, Package, DollarSign, ArrowUpRight, ArrowDownRight, 
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
+import CategoryManagementSection from "./CategoryManagementSection"
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -121,6 +122,12 @@ export default function AdminDashboard() {
                 className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg"
               >
                 Products
+              </TabsTrigger>
+              <TabsTrigger
+                value="categories"
+                className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg"
+              >
+                Categories
               </TabsTrigger>
             </TabsList>
 
@@ -678,6 +685,20 @@ export default function AdminDashboard() {
                       </TableBody>
                     </Table>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="categories" className="space-y-8 mt-8">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-white text-2xl font-bold">Category Management</CardTitle>
+                  <CardDescription className="text-gray-300 text-lg">Create, edit, or delete categories</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Category management UI goes here */}
+                  {/* Example: List categories, add/edit/delete forms/buttons */}
+                  <CategoryManagementSection />
                 </CardContent>
               </Card>
             </TabsContent>

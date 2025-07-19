@@ -133,7 +133,12 @@ class AIChatbot:
             'winter wear': ['Jackets', 'Hoodies', 'Sweaters'],
             'makeup': ['Lipstick', 'Makeup'],
             'beauty': ['Makeup', 'Lipstick'],
-            
+            'tshirt': ['T-Shirts', 'Shirts'],
+            't-shirt': ['T-Shirts', 'Shirts'],
+            't shirt': ['T-Shirts', 'Shirts'],
+            'tshirts': ['T-Shirts', 'Shirts'],
+            't-shirts': ['T-Shirts', 'Shirts'],
+            't shirts': ['T-Shirts', 'Shirts'],
         }
     
     def _load_or_train_models(self):
@@ -1234,44 +1239,50 @@ class AIChatbot:
                         products = products.filter(id__in=product_ids)
                         print(f"📋 After context filter: {products.count()} products")
                         filtered = True
-            # Strict category filtering first
+            # Category filtering with fallback
             if entities.get('categories'):
                 category_filter = Q()
                 for category in entities['categories']:
                     category_filter |= Q(category__name__icontains=category)
                 products = products.filter(category_filter)
-                print(f"📂 After strict category filter: {products.count()} products")
+                print(f"📂 After category filter: {products.count()} products")
                 filtered = True
+                
+                # If no products found with exact category match, try mapped categories
+                if not products.exists():
+                    mapped_products = Product.objects.filter(is_active=True)
+                    mapped_filter = Q()
+                    for category in entities['categories']:
+                        # Use retail mapping if available
+                        mapped_cats = self.retail_category_mapping.get(category.lower(), [])
+                        for mapped_cat in mapped_cats:
+                            mapped_filter |= Q(category__name__icontains=mapped_cat)
+                    if mapped_filter:
+                        mapped_products = mapped_products.filter(mapped_filter)
+                        if mapped_products.exists():
+                            print(f"🗺️ After mapped category filter: {mapped_products.count()} products")
+                            products = mapped_products
+                            filtered = True
+                
                 # If color is also specified, filter by color on top of category
-                if entities.get('colors'):
+                if entities.get('colors') and products.exists():
                     color_products = products.filter(
                         variants__options__variant_type__name__iexact='Color',
                         variants__options__value__in=entities['colors']
                     ).distinct()
-                    products = color_products
-                    print(f"🎨 After color+category filter: {products.count()} products")
-            # --- NEW: If no products found, try mapped retail categories ---
-            # Only fallback to mapped retail categories if color, brand, size, and price are NOT specified
-            if (
-                not products.exists() and entities.get('categories')
-                and not entities.get('colors')
-                and not entities.get('brands')
-                and not entities.get('sizes')
-                and not entities.get('price_range')
-            ):
-                mapped_products = Product.objects.filter(is_active=True)
-                mapped_filter = Q()
-                for category in entities['categories']:
-                    # Use retail mapping if available
-                    mapped_cats = self.retail_category_mapping.get(category.lower(), [])
-                    for mapped_cat in mapped_cats:
-                        mapped_filter |= Q(category__name__icontains=mapped_cat)
-                if mapped_filter:
-                    mapped_products = mapped_products.filter(mapped_filter)
-                    if mapped_products.exists():
-                        print(f"🗺️ After mapped retail category filter: {mapped_products.count()} products")
-                        products = mapped_products
-                        filtered = True
+                    if color_products.exists():
+                        products = color_products
+                        print(f"🎨 After color+category filter: {products.count()} products")
+                    else:
+                        # If no color variants found, try searching in name/description
+                        color_products = products.filter(
+                            Q(name__icontains=entities['colors'][0]) | 
+                            Q(description__icontains=entities['colors'][0])
+                        )
+                        if color_products.exists():
+                            products = color_products
+                            print(f"🎨 After color name/desc filter: {products.count()} products")
+
             # If still no products, try brand
             if not products.exists() and entities.get('brands'):
                 brand_filter = Q()
@@ -1314,8 +1325,7 @@ class AIChatbot:
                 print(f"💰 After price filter: {products.count()} products")
                 filtered = True
             # --- NEW: If still no products, try keyword fallback (search name/description/category for user query/keywords) ---
-            # Only fallback to keyword search if neither category nor color is specified
-            if not products.exists() and not entities.get('categories') and not entities.get('colors'):
+            if not products.exists():
                 keyword_filter = Q()
                 # Try all entities as keywords
                 for key in ['categories', 'brands', 'colors', 'sizes', 'keywords']:

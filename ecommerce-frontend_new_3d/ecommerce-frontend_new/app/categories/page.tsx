@@ -134,7 +134,7 @@ export default function CategoriesPage() {
                               <CategoryCard
                                 key={rootCategory.id}
                                 name={`All ${rootCategory.name}`}
-                                image={`/images/categories/${rootCategory.name.toLowerCase().replace(/\s+/g, "-")}.jpg`}
+                                image={rootCategory.image_url || `/images/categories/${rootCategory.name.toLowerCase().replace(/\s+/g, "-")}.jpg`}
                                 count="Browse All"
                                 href={`/categories/${rootCategory.id}`}
                               />
@@ -146,7 +146,7 @@ export default function CategoriesPage() {
                               >
                                 <CategoryCard
                                   name={childCategory.name}
-                                  image={`/placeholder.svg?height=300&width=300&query=${encodeURIComponent(childCategory.name)}`}
+                                  image={childCategory.image_url || `/placeholder.svg?height=300&width=300&query=${encodeURIComponent(childCategory.name)}`}
                                   count="View Products"
                                   href={`/categories/${childCategory.id}`}
                                 />
@@ -165,7 +165,7 @@ export default function CategoriesPage() {
                         >
                           <CategoryCard
                             name={category.name}
-                            image={`/placeholder.svg?height=300&width=300&query=${encodeURIComponent(category.name)}`}
+                            image={category.image_url || `/placeholder.svg?height=300&width=300&query=${encodeURIComponent(category.name)}`}
                             count="View Products"
                             href={`/categories/${category.id}`}
                           />
