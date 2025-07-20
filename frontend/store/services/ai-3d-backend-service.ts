@@ -55,8 +55,8 @@ export interface QueueStatus {
 export class AI3DBackendService {
   private baseUrl: string
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") {
-    this.baseUrl = baseUrl
+  constructor() {
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || ""
   }
 
   private async getAuthHeaders(): Promise<Record<string, string>> {

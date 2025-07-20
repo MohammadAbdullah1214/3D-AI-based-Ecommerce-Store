@@ -112,7 +112,7 @@ export interface UserProfileResponse {
 }
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/chatbot/`,
+  baseUrl: process.env.NEXT_PUBLIC_API_URL + '/api/chatbot/',
   prepareHeaders: (headers) => {
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token")
