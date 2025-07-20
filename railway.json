@@ -1,7 +1,7 @@
 {
   "build": {
-    "context": ".",
-    "dockerfilePath": "backend/Dockerfile.celery"
+    "context": "backend",
+    "dockerfilePath": "Dockerfile.celery"
   },
   "deploy": {
     "startCommand": "celery -A core worker --loglevel=info",
