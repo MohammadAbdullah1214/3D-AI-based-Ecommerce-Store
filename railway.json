@@ -1,6 +1,13 @@
 {
   "build": {
-    "context": "backend/backend",
-    "dockerfilePath": "backend/backend/Dockerfile.django"
+    "context": "backend",
+    "dockerfilePath": "Dockerfile.celery"
+  },
+  "deploy": {
+    "startCommand": "celery -A core worker --loglevel=info",
+    "healthcheckPath": "/health/",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
   }
 }
