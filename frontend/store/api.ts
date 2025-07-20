@@ -1,8 +1,17 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 import type { RootState } from "./index"
 
-// Update the base URL to point to your Django backend
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/"
+// Dynamically determine the base URL
+let baseUrl = "http://127.0.0.1:8000/api/"
+if (typeof window !== "undefined") {
+  baseUrl = process.env.NEXT_PUBLIC_API_URL
+    ? process.env.NEXT_PUBLIC_API_URL + (process.env.NEXT_PUBLIC_API_URL.endsWith("/") ? "api/" : "/api/")
+    : window.location.hostname === "localhost"
+      ? "http://127.0.0.1:8000/api/"
+      : "http://127.0.0.1:8000/api/"
+} else if (process.env.NEXT_PUBLIC_API_URL) {
+  baseUrl = process.env.NEXT_PUBLIC_API_URL + (process.env.NEXT_PUBLIC_API_URL.endsWith("/") ? "api/" : "/api/")
+}
 
 // Find the line where the main api is created and ensure it has a unique reducerPath
 export const api = createApi({
