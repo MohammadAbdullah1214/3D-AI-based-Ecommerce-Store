@@ -39,18 +39,25 @@ Ensure you have the following installed:
 git clone https://github.com/MohammadAbdullah1214/3D-AI-based-Ecommerce-Store.git  
 cd 3D-AI-based-Ecommerce-Store  
 ```
-create a file in backend/ named .env
-and add this
+
+### 2. Create .ENV Files 
+create a file in backend/ named .env and add this
+
+```bash
+create a file in backend/ named .env and add this
 DJANGO_SECRET_KEY=a9ogFLVgYPEHU-7yxnLbA07lJn1w613I7NxtTNwKq9J-SKof2Xot48NwQ5YFy2gQ850
 DEBUG=False
 DATABASE_URL=postgresql://postgres.gmxrvtrwjjiyvrqhwwmt:3dteam%40db123@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
 ALLOWED_HOSTS=127.0.0.1,localhost,.vercel.app
 CELERY_BROKER_URL=rediss://default:Ab2XAAIjcDE1MzQ0Y2ZmOTM0MDg0ZTEyYTdhMjJmN2Y4YzRlNDQ4YXAxMA@special-leech-48535.upstash.io:6379
 CELERY_RESULT_BACKEND=rediss://default:Ab2XAAIjcDE1MzQ0Y2ZmOTM0MDg0ZTEyYTdhMjJmN2Y4YzRlNDQ4YXAxMA@special-leech-48535.upstash.io:6379
+```
 
 create a file in frontend/ named .env.local
+```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+```
 
 ### 2. Set Up Python Environment
 ```bash
@@ -82,8 +89,11 @@ python manage.py runserver
 Access the site at: http://127.0.0.1:8000/
 ```
 
+Try logging in
+```bash
 admin account id : admin
 admin account password : 1234
+```
 
 ###  Project Structure
 3D-AI-based-Ecommerce-Store/  
