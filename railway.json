@@ -1,6 +1,6 @@
 {
   "build": {
-    "context": "backend/backend",
-    "dockerfilePath": "backend/backend/Dockerfile.django"
+    "context": "backend",
+    "dockerfilePath": "backend/Dockerfile.celery"
   }
 }
