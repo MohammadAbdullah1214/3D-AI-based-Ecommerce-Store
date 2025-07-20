@@ -86,7 +86,7 @@ export default function CategoriesPage() {
             <div className="container mx-auto px-4 relative z-10">
               <div className="max-w-4xl mx-auto text-center text-white">
                 <h1 className="text-4xl md:text-6xl font-bold mb-6">
-                  Shop by <span style={{ color: "#F3C998" }}>Category</span>
+                  Shop By <span style={{ color: "#F3C998" }}>Category</span>
                 </h1>
                 <p className="text-xl text-gray-300">Browse our wide selection of products across popular categories</p>
               </div>

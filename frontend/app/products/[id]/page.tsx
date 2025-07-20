@@ -36,6 +36,7 @@ import { getProductPrice, getProductStock, getBackendMediaUrl, getMediaUrl } fro
 import { useSelector } from 'react-redux'
 import { useRouter } from 'next/navigation'
 import { useAddItemMutation, useCheckProductQuery, useRemoveItemMutation } from '@/store/services/wishlistApi'
+import { useGetProductReviewsQuery, useAddProductReviewMutation } from '@/store/services/reviewApi'
 import Link from "next/link"
 
 export default function ProductDetailPage() {
@@ -90,10 +91,16 @@ export default function ProductDetailPage() {
     { skip: !product?.id }
   )
   const [wishlistError, setWishlistError] = useState<string | null>(null)
+  const [showReviewForm, setShowReviewForm] = useState(false)
+  const [reviewForm, setReviewForm] = useState({ rating: 0, comment: "" })
 
   // Robust seller check
   const isSellerOfThisProduct = user && user.role === "seller" && product && (user.id === product.seller_id || user.username === product.seller_username);
   const isOutOfStock = product ? getProductStock(product) <= 0 : true
+
+  // Get reviews for this product
+  const { data: reviews = [] } = useGetProductReviewsQuery(Number(productId))
+  const [addReview] = useAddProductReviewMutation()
 
   const handleAddToCart = async () => {
     console.log('Add to Cart Clicked:', { isAuthenticated, user });
@@ -210,6 +217,57 @@ export default function ProductDetailPage() {
         description: "Product link has been copied to clipboard.",
       })
     }
+  }
+
+  const handleReviewSubmit = async () => {
+    if (reviewForm.rating === 0) {
+      toast({
+        title: "Rating required",
+        description: "Please select a rating before submitting.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!reviewForm.comment.trim()) {
+      toast({
+        title: "Comment required",
+        description: "Please write a comment before submitting.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await addReview({
+        product_id: Number(productId),
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+      }).unwrap()
+
+      toast({
+        title: "Review submitted",
+        description: "Thank you for your feedback!",
+      })
+
+      setReviewForm({ rating: 0, comment: "" })
+      setShowReviewForm(false)
+    } catch (error) {
+      console.error("Error submitting review:", error)
+      toast({
+        title: "Error",
+        description: "There was a problem submitting your review. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRatingChange = (rating: number) => {
+    setReviewForm((prev) => ({ ...prev, rating }))
+  }
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setReviewForm((prev) => ({ ...prev, comment: e.target.value }))
   }
 
   // Add guards for possibly undefined product before all usages
@@ -572,7 +630,7 @@ export default function ProductDetailPage() {
                       value="reviews"
                       className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg rounded-lg"
                     >
-                      Reviews ({product.reviews?.length || 0})
+                      Reviews ({reviews.length})
                     </TabsTrigger>
                     <TabsTrigger
                       value="variants"
@@ -642,29 +700,93 @@ export default function ProductDetailPage() {
                   </TabsContent>
                   <TabsContent value="reviews" className="p-8">
                     <div className="space-y-6">
-                      {Array.isArray(product.reviews) && product.reviews.length > 0 ? (
-                        product.reviews.map((review) => (
-                          <div key={review.id} className="border-b border-white/10 pb-6 mb-6">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="flex items-center">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`h-4 w-4 ${
-                                      star <= (review.rating || 0)
-                                        ? "text-yellow-400 fill-yellow-400"
-                                        : "text-gray-500"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="font-medium text-white">{review.user_id || "User"}</span>
-                              <span className="text-xs text-gray-500">{new Date(review.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <div className="text-gray-300 text-base">{review.comment}</div>
-                            <div className="text-xs text-gray-500 mt-2">Rating: {review.rating}/5</div>
+                      {/* Review Form for authenticated users */}
+                      {isAuthenticated && !isSellerOfThisProduct && (
+                        <div className="bg-white/5 p-6 rounded-xl border border-white/10">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-medium text-white">Write a Review</h3>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowReviewForm(!showReviewForm)}
+                              className="border-[#F3C998]/30 text-[#F3C998] hover:bg-[#F3C998]/10 hover:border-[#F3C998]/50 transition-all duration-300 backdrop-blur-sm"
+                            >
+                              {showReviewForm ? "Cancel" : "Write Review"}
+                            </Button>
                           </div>
-                        ))
+                          
+                          {showReviewForm && (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-white mb-2">Your Rating</label>
+                                <div className="flex gap-1">
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onClick={() => handleRatingChange(i + 1)}
+                                      className="focus:outline-none"
+                                    >
+                                      <Star
+                                        className={`h-6 w-6 ${
+                                          i < reviewForm.rating
+                                            ? "text-[#F3C998] fill-[#F3C998]"
+                                            : "text-gray-400 hover:text-[#F3C998]"
+                                        }`}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-white mb-2">Your Review</label>
+                                <Textarea
+                                  placeholder="Share your thoughts about this product..."
+                                  value={reviewForm.comment}
+                                  onChange={handleCommentChange}
+                                  rows={4}
+                                  className="bg-white/5 border-white/20 text-white placeholder-gray-400"
+                                />
+                              </div>
+
+                              <Button
+                                onClick={handleReviewSubmit}
+                                className="bg-[#F3C998] text-[#1D212D] hover:bg-[#F3C998]/90 transition-all duration-300"
+                              >
+                                Submit Review
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Reviews List */}
+                      {reviews.length > 0 ? (
+                        <div className="space-y-6">
+                          {reviews.map((review) => (
+                            <div key={review.id} className="border-b border-white/10 pb-6 mb-6">
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="flex items-center">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`h-4 w-4 ${
+                                        star <= (review.rating || 0)
+                                          ? "text-yellow-400 fill-yellow-400"
+                                          : "text-gray-500"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="font-medium text-white">{review.user_username || "User"}</span>
+                                <span className="text-xs text-gray-500">{new Date(review.created_at).toLocaleDateString()}</span>
+                              </div>
+                              <div className="text-gray-300 text-base">{review.comment}</div>
+                              <div className="text-xs text-gray-500 mt-2">Rating: {review.rating}/5</div>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <div className="text-center py-8">
                           <p className="text-gray-400 text-lg">No reviews yet. Be the first to review this product!</p>

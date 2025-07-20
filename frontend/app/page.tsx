@@ -1,5 +1,6 @@
 import HeroWithProduct from "@/components/home/hero-with-product"
 import FeaturedProductsWith3D from "@/components/home/featured-products-with-3d"
+import CustomerReviews from "@/components/home/customer-reviews"
 import HeaderWrapper from "@/app/header-wrapper"
 import Link from "next/link"
 import Image from "next/image"
@@ -156,87 +157,8 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Testimonials Section - With glass cards */}
-            <section className="py-24 relative overflow-hidden">
-              <div className="container mx-auto px-4 relative z-10">
-                <div className="text-center mb-16">
-                  <Badge
-                    className="mb-4 py-2 px-4 text-sm backdrop-blur-md"
-                    style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
-                  >
-                    <Users className="h-4 w-4 mr-2" /> Customer Reviews
-                  </Badge>
-                  <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">What Our Customers Say</h2>
-                  <p className="text-gray-300 max-w-2xl mx-auto text-lg leading-relaxed">
-                    Don't just take our word for it. Here's what our customers have to say about their shopping
-                    experience.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {[
-                    {
-                      name: "Sarah Johnson",
-                      role: "Regular Customer",
-                      comment:
-                        "I've been shopping here for over a year now and I'm always impressed by the quality of products and the fast shipping. Highly recommended!",
-                      rating: 5,
-                      image: "/serene-gaze.png",
-                    },
-                    {
-                      name: "Michael Chen",
-                      role: "New Customer",
-                      comment:
-                        "My first order arrived earlier than expected and the product quality exceeded my expectations. Will definitely be shopping here again.",
-                      rating: 5,
-                      image: "/thoughtful-gaze.png",
-                    },
-                    {
-                      name: "Emily Rodriguez",
-                      role: "Frequent Shopper",
-                      comment:
-                        "The customer service is exceptional. I had an issue with my order and it was resolved immediately. That's why I keep coming back!",
-                      rating: 4,
-                      image: "/serene-gaze.png",
-                    },
-                  ].map((testimonial, index) => (
-                    <div
-                      key={index}
-                      className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 h-full flex flex-col hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10"
-                    >
-                      <div className="flex items-center mb-6">
-                        {Array(5)
-                          .fill(0)
-                          .map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-5 w-5 ${i < testimonial.rating ? "fill-current" : "text-gray-400"}`}
-                              style={{ color: i < testimonial.rating ? "#F3C998" : undefined }}
-                            />
-                          ))}
-                      </div>
-                      <p className="text-white text-lg mb-8 flex-grow italic leading-relaxed">
-                        "{testimonial.comment}"
-                      </p>
-                      <div className="flex items-center mt-auto">
-                        <div className="w-12 h-12 rounded-full overflow-hidden mr-4 border-2 border-[#F3C998]/30">
-                          <Image
-                            src={testimonial.image || "/placeholder.svg"}
-                            alt={testimonial.name}
-                            width={48}
-                            height={48}
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-white">{testimonial.name}</h4>
-                          <p className="text-sm text-gray-300">{testimonial.role}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
+            {/* Customer Reviews Section */}
+            <CustomerReviews />
 
             {/* CTA Section - With glass effect */}
             <section className="py-24 relative overflow-hidden">
