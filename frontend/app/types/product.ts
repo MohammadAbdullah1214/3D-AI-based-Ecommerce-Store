@@ -87,6 +87,7 @@ export interface Category {
   created_at?: string
   updated_at?: string
   subcategories?: Category[]
+  product_count?: number
 }
 
 export interface ProductVariant {
@@ -147,14 +148,7 @@ export interface ProductListResponse {
   totalPages: number
 }
 
-export interface User {
-  id: number
-  name: string
-  email: string
-  email_verified_at: string
-  created_at: string
-  updated_at: string
-}
+// User interface moved to user.ts to avoid duplicate exports
 
 export interface ProductFormData {
   name: string

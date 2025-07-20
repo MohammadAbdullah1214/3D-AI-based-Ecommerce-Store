@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useGetCategoriesQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation } from "@/store/services/productApi"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,15 @@ export default function CategoryManagementSection() {
   const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation()
   const [deleteCategory, { isLoading: isDeleting }] = useDeleteCategoryMutation()
 
+  // Add automatic refetch on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      refetch()
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [refetch])
+
   const handleCreateCategory = async () => {
     try {
       const formDataToSend = new FormData()
@@ -56,7 +65,7 @@ export default function CategoryManagementSection() {
       })
       setIsCreateDialogOpen(false)
       setFormData({ name: "", description: "", parent_id: undefined, image_file: undefined })
-      refetch()
+      await refetch()
     } catch (error) {
       toast({
         title: "Error",
@@ -99,7 +108,7 @@ export default function CategoryManagementSection() {
       setIsEditDialogOpen(false)
       setEditingCategory(null)
       setFormData({ name: "", description: "", parent_id: undefined, image_file: undefined })
-      refetch()
+      await refetch()
     } catch (error) {
       toast({
         title: "Error",
@@ -116,7 +125,7 @@ export default function CategoryManagementSection() {
         title: "Success",
         description: "Category deleted successfully!",
       })
-      refetch()
+      await refetch()
     } catch (error) {
       toast({
         title: "Error",
@@ -251,7 +260,10 @@ export default function CategoryManagementSection() {
                 </TableHeader>
                 <TableBody>
                   {categories.map((category) => (
-                    <TableRow key={category.id} className="border-white/10 hover:bg-white/5">
+                    <TableRow
+                      key={category.id}
+                      className="bg-[#23272f] border-white/10 hover:bg-white/5"
+                    >
                       <TableCell className="font-medium text-white">
                         <div className="flex items-center space-x-2">
                           {category.subcategories && category.subcategories.length > 0 ? (

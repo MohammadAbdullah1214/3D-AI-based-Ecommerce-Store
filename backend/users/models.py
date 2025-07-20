@@ -1,5 +1,8 @@
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
+import uuid
+from django.utils import timezone
+from datetime import timedelta
 
 class CustomUserManager(UserManager):
     def create_superuser(self, username, email=None, password=None, **extra_fields):
@@ -34,3 +37,21 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    
+    def is_valid(self):
+        """Check if the token is still valid (24 hours)"""
+        return not self.is_used and (timezone.now() - self.created_at) < timedelta(hours=24)
+    
+    def __str__(self):
+        return f"Reset token for {self.user.username}"
+    
+    class Meta:
+        verbose_name = 'Password Reset Token'
+        verbose_name_plural = 'Password Reset Tokens'

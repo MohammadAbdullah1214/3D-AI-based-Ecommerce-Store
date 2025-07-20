@@ -24,6 +24,8 @@ import {
   Check,
   X,
   Save,
+  Calendar,
+  Clock,
 } from "lucide-react"
 
 interface ProfileFormProps {
@@ -54,7 +56,6 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     newPassword: "",
     confirmNewPassword: "",
   })
-
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -104,7 +105,6 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       ...req,
       met: req.test(password),
     }))
-
     const metRequirements = requirements.filter((req) => req.met).length
     const score = (metRequirements / requirements.length) * 100
 
@@ -152,20 +152,23 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         setError("Current password is required to change password")
         return false
       }
-
       if (formData.newPassword !== formData.confirmNewPassword) {
         setError("New passwords do not match")
         return false
       }
-
-      const strength = calculatePasswordStrength(formData.newPassword)
-      if (strength.score < 60) {
-        setError("New password is too weak. Please meet at least 3 requirements for a stronger password.")
+      if (formData.newPassword.length < 8) {
+        setError("New password must be at least 8 characters long")
+        return false
+      }
+      // Check if all password requirements are met
+      const metRequirements = passwordStrength.requirements.filter((req) => req.met).length
+      if (metRequirements < passwordRequirements.length) {
+        setError("New password does not meet all security requirements")
         return false
       }
     }
 
-    if (!formData.email.includes("@")) {
+    if (!formData.email.includes("@") || !formData.email.includes(".")) {
       setError("Please enter a valid email address")
       return false
     }
@@ -176,6 +179,22 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     }
 
     return true
+  }
+
+  const isFormValid = () => {
+    const basicInfoValid = formData.username.length >= 3 && formData.email.includes("@") && formData.email.includes(".")
+
+    if (!isChangingPassword) {
+      return basicInfoValid
+    }
+
+    const passwordValid =
+      formData.currentPassword &&
+      formData.newPassword.length >= 8 &&
+      formData.newPassword === formData.confirmNewPassword &&
+      passwordStrength.requirements.every(req => req.met)
+
+    return basicInfoValid && passwordValid
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,6 +209,9 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setIsSubmitting(true)
 
     try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/"
+      const token = localStorage.getItem("token")
+
       // Prepare update data
       const updateData: any = {
         username: formData.username,
@@ -199,24 +221,56 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         last_name: formData.lastName,
       }
 
-      // Add password change data if changing password
-      if (isChangingPassword) {
-        updateData.current_password = formData.currentPassword
-        updateData.new_password = formData.newPassword
-      }
+      console.log("Sending profile update data:", updateData)
 
-      // In a real app, you would update the user profile via API
-      const response = await fetch("/api/users/me", {
+      // Update basic profile information
+      const response = await fetch(`${baseUrl}users/me/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(updateData),
       })
 
-      // Simulate API call for demo
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log("Profile update error:", errorData)
+        
+        // Handle different types of error responses
+        let errorMessage = "Failed to update profile"
+        if (errorData.detail) {
+          errorMessage = errorData.detail
+        } else if (typeof errorData === 'object') {
+          // Handle field-specific errors
+          const fieldErrors = Object.entries(errorData)
+            .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors[0] : errors}`)
+            .join(', ')
+          errorMessage = fieldErrors || errorMessage
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      // Handle password change separately
+      if (isChangingPassword) {
+        const passwordResponse = await fetch(`${baseUrl}users/change_password/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            current_password: formData.currentPassword,
+            new_password: formData.newPassword,
+          }),
+        })
+
+        if (!passwordResponse.ok) {
+          const passwordErrorData = await passwordResponse.json()
+          throw new Error(passwordErrorData.detail || passwordErrorData.current_password?.[0] || "Failed to change password")
+        }
+      }
 
       setSuccess("Profile updated successfully!")
 
@@ -236,11 +290,11 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         description: "Your profile has been updated successfully.",
         variant: "default",
       })
-    } catch (error) {
-      setError("Failed to update profile. Please try again.")
+    } catch (error: any) {
+      setError(error.message || "Failed to update profile. Please try again.")
       toast({
         title: "Error updating profile",
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       })
     } finally {
@@ -248,27 +302,122 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     }
   }
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   return (
-    <div className="min-h-screen p-6 flex items-center justify-center" style={{ backgroundColor: "#1D212D" }}>
-      <Card
-        className="w-full max-w-2xl backdrop-blur-xl bg-white/5 border-white/10 shadow-2xl"
-        style={{ boxShadow: `0 25px 50px -12px rgba(243, 201, 152, 0.1)` }}
-      >
-        <CardHeader className="space-y-2 pb-8">
-          <div
-            className="w-12 h-12 backdrop-blur-sm rounded-xl flex items-center justify-center mb-4 mx-auto shadow-lg border border-white/20"
-            style={{ backgroundColor: "#F3C998" }}
-          >
-            <User className="w-6 h-6" style={{ color: "#1D212D" }} />
-          </div>
-          <CardTitle className="text-3xl font-bold text-center text-white drop-shadow-lg">Profile Settings</CardTitle>
-          <CardDescription className="text-center text-white/80 text-base">
-            Manage your account information and security settings
+    <div className="space-y-8">
+      {/* User Information Display */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="bg-white/5 backdrop-blur-xl border border-white/20 shadow-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-white text-xl">
+              <User className="h-5 w-5" style={{ color: "#F3C998" }} />
+              Account Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-semibold text-sm">
+                  {user?.username?.charAt(0).toUpperCase() || "U"}
+                </span>
+              </div>
+              <div>
+                <p className="text-white font-semibold">{user?.username}</p>
+                <p className="text-white/60 text-sm">{user?.role}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-white/80">
+                <Mail className="w-4 h-4" />
+                <span className="text-sm">{user?.email}</span>
+              </div>
+              
+              {user?.address && (
+                <div className="flex items-start gap-2 text-white/80">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{user.address}</span>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2 text-white/80">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm">Joined: {formatDate(user?.created_at || user?.date_joined || new Date().toISOString())}</span>
+              </div>
+              
+              {user?.last_login && (
+                <div className="flex items-center gap-2 text-white/80">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm">Last login: {formatDate(user.last_login)}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/5 backdrop-blur-xl border border-white/20 shadow-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-white text-xl">
+              <Shield className="h-5 w-5" style={{ color: "#F3C998" }} />
+              Account Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-white/80">Account Status</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                user?.is_active 
+                  ? "bg-green-500/20 text-green-300 border border-green-500/30" 
+                  : "bg-red-500/20 text-red-300 border border-red-500/30"
+              }`}>
+                {user?.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-white/80">Role</span>
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1) || "Customer"}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-white/80">Staff Status</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                user?.is_staff 
+                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" 
+                  : "bg-gray-500/20 text-gray-300 border border-gray-500/30"
+              }`}>
+                {user?.is_staff ? "Staff" : "Regular User"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Profile Edit Form */}
+      <Card className="bg-white/5 backdrop-blur-xl border border-white/20 shadow-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3 text-white text-xl">
+            <User className="h-5 w-5" style={{ color: "#F3C998" }} />
+            Edit Profile Information
+          </CardTitle>
+          <CardDescription className="text-white/80">
+            Update your account information and security settings
           </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-6 px-8 pb-8">
+          <CardContent className="space-y-6">
             {error && (
               <Alert className="bg-red-500/20 border-red-400/30 backdrop-blur-sm animate-in slide-in-from-top-2 duration-300">
                 <AlertCircle className="h-5 w-5 text-red-300" />
@@ -390,7 +539,18 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsChangingPassword(!isChangingPassword)}
+                  onClick={() => {
+                    setIsChangingPassword(!isChangingPassword)
+                    if (isChangingPassword) {
+                      // Clear password fields when canceling
+                      setFormData((prev) => ({
+                        ...prev,
+                        currentPassword: "",
+                        newPassword: "",
+                        confirmNewPassword: "",
+                      }))
+                    }
+                  }}
                   className="text-white/80 hover:text-white hover:bg-white/10"
                 >
                   {isChangingPassword ? "Cancel" : "Change Password"}
@@ -446,7 +606,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                         value={formData.newPassword}
                         onChange={handleChange}
                         required={isChangingPassword}
-                        placeholder="Create a new secure password"
+                        placeholder="Create a new secure password (min 8 characters)"
                         className="h-12 bg-white/5 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-white/20 transition-all duration-200 text-base pr-12 text-white placeholder:text-white/60"
                       />
                       <Button
@@ -482,9 +642,8 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                             } as React.CSSProperties
                           }
                         />
-
                         <div className="space-y-2 p-3 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10">
-                          <p className="text-xs font-medium text-white/80 mb-2">Password Requirements:</p>
+                          <p className="text-xs font-medium text-white/80 mb-2">Password Requirements (Required):</p>
                           {passwordStrength.requirements.map((req, index) => (
                             <div key={index} className="flex items-center gap-2 text-xs">
                               {req.met ? (
@@ -495,6 +654,9 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                               <span className={req.met ? "text-green-300" : "text-white/60"}>{req.label}</span>
                             </div>
                           ))}
+                          <p className="text-xs text-white/60 mt-2 italic">
+                            Note: All requirements must be met to change password.
+                          </p>
                         </div>
                       </div>
                     )}
@@ -551,7 +713,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
             <div className="pt-6">
               <Button
                 type="submit"
-                disabled={isSubmitting || (isChangingPassword && passwordStrength.score < 60)}
+                disabled={isSubmitting || !isFormValid()}
                 className="w-full h-12 backdrop-blur-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
               >
@@ -568,11 +730,35 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 )}
               </Button>
 
-              {isChangingPassword && passwordStrength.score < 60 && formData.newPassword && (
-                <p className="text-xs text-center text-yellow-300 flex items-center justify-center gap-1 mt-2">
-                  <AlertCircle className="w-3 h-3" />
-                  Please create a stronger password to continue
-                </p>
+              {!isFormValid() && (isChangingPassword ? formData.newPassword : true) && (
+                <div className="text-xs text-center space-y-1 mt-2">
+                  {isChangingPassword &&
+                    formData.newPassword !== formData.confirmNewPassword &&
+                    formData.confirmNewPassword && (
+                      <p className="text-red-300 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        New passwords must match to continue
+                      </p>
+                    )}
+                  {isChangingPassword && formData.newPassword && formData.newPassword.length < 8 && (
+                    <p className="text-red-300 flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      New password must be at least 8 characters long
+                    </p>
+                  )}
+                  {isChangingPassword && formData.newPassword && !passwordStrength.requirements.every(req => req.met) && (
+                    <p className="text-red-300 flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      New password must meet all security requirements
+                    </p>
+                  )}
+                  {formData.username && formData.username.length < 3 && (
+                    <p className="text-red-300 flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Username must be at least 3 characters long
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </CardContent>

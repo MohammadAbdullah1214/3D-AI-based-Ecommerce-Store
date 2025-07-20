@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RotateCcw, Maximize2, RotateCw, Minimize2 } from "lucide-react"
 import * as THREE from "three"
-import { getBackendMediaUrl } from '@/utils/product-utils'
 
 interface Simple3DViewerProps {
   modelUrl?: string
@@ -22,7 +21,7 @@ interface Simple3DViewerProps {
   showARButton?: boolean
 }
 
-// Full 360-degree orbit controls with offset positioning
+// Full 360-degree orbit controls with centered positioning
 function Full360OrbitControls() {
   const { camera, gl } = useThree()
   const [isMouseDown, setIsMouseDown] = useState(false)
@@ -33,8 +32,8 @@ function Full360OrbitControls() {
     theta: 0, // Horizontal angle (0 to 2*PI)
   })
   const [autoRotate, setAutoRotate] = useState(false)
-  // Offset target to top-left
-  const targetRef = useRef(new THREE.Vector3(-0.5, 0.5, 0))
+  // Centered target position
+  const targetRef = useRef(new THREE.Vector3(0, 0, 0))
 
   useEffect(() => {
     if (!gl?.domElement || !camera) return
@@ -170,7 +169,7 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
     setLoading(true)
     setError(false)
 
-    if (url.endsWith('.obj')) {
+    if (url.endsWith(".obj")) {
       // Load OBJ model
       const loader = new OBJLoader()
       loader.load(
@@ -180,18 +179,22 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
           const box = new THREE.Box3().setFromObject(object)
           const center = box.getCenter(new THREE.Vector3())
           const size = box.getSize(new THREE.Vector3())
-          object.position.set(-center.x - 0.5, -center.y + 0.5, -center.z)
+
+          // Center the model
+          object.position.set(-center.x, -center.y, -center.z)
+
           const maxDim = Math.max(size.x, size.y, size.z)
           if (maxDim > 0) {
             const scale = 2.5 / maxDim
             object.scale.setScalar(scale)
           }
+
           setObj(object)
           setLoading(false)
         },
         (progress) => {
-          const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0;
-          console.log("OBJ Loading progress:", percent + "%");
+          const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0
+          console.log("OBJ Loading progress:", percent + "%")
         },
         (err) => {
           console.error("Failed to load OBJ:", err)
@@ -208,18 +211,22 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
           try {
             // Clone the scene to avoid issues with multiple instances
             const scene = loadedGltf.scene.clone()
+
             // Calculate bounding box for proper centering
             const box = new THREE.Box3().setFromObject(scene)
             const center = box.getCenter(new THREE.Vector3())
             const size = box.getSize(new THREE.Vector3())
-            // Position model slightly to top-left (-0.5, 0.5, 0)
-            scene.position.set(-center.x - 0.5, -center.y + 0.5, -center.z)
+
+            // Center the model
+            scene.position.set(-center.x, -center.y, -center.z)
+
             // Scale to fit nicely in view
             const maxDim = Math.max(size.x, size.y, size.z)
             if (maxDim > 0) {
               const scale = 2.5 / maxDim
               scene.scale.setScalar(scale)
             }
+
             // Ensure all materials are visible
             scene.traverse((child) => {
               if (child instanceof THREE.Mesh) {
@@ -230,6 +237,7 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
                 }
               }
             })
+
             setGltf({ ...loadedGltf, scene })
             setLoading(false)
           } catch (err) {
@@ -239,8 +247,8 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
           }
         },
         (progress) => {
-          const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0;
-          console.log("GLTF Loading progress:", percent + "%");
+          const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0
+          console.log("GLTF Loading progress:", percent + "%")
         },
         (err) => {
           console.error("Failed to load GLTF:", err)
@@ -261,7 +269,7 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
   if (loading) {
     return (
       <group>
-        <mesh position={[-0.5, 0.5, 0]}>
+        <mesh position={[0, 0, 0]}>
           <boxGeometry args={[2, 2, 2]} />
           <meshStandardMaterial color="#cccccc" wireframe />
         </mesh>
@@ -274,7 +282,7 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
   }
 
   return (
-    <group ref={groupRef} position={[0, 0.8, 0.8]}>
+    <group ref={groupRef} position={[0, -0.8, 0]}>
       {gltf && <primitive object={gltf.scene} />}
       {obj && <primitive object={obj} />}
     </group>
@@ -291,8 +299,8 @@ function FallbackModel({ isDefault }: { isDefault: boolean }) {
   })
 
   return (
-    <group ref={meshRef} position={[-0.5, 0.5, 0]}>
-      {/* Simple shirt shape - positioned to top-left */}
+    <group ref={meshRef} position={[0, 0, 0]}>
+      {/* Simple shirt shape - centered */}
       <mesh position={[0, 0, 0]}>
         <boxGeometry args={[2, 2.5, 0.3]} />
         <meshStandardMaterial color="#4f46e5" />
@@ -321,7 +329,6 @@ function Scene({ modelUrl, isDefault }: { modelUrl: string; isDefault: boolean }
       <Suspense fallback={<FallbackModel isDefault={false} />}>
         <Model url={modelUrl} isDefault={isDefault} />
       </Suspense>
-
       {/* Enhanced lighting for 360-degree viewing */}
       <ambientLight intensity={0.4} />
       <directionalLight position={[10, 10, 5]} intensity={0.8} castShadow />
@@ -329,7 +336,6 @@ function Scene({ modelUrl, isDefault }: { modelUrl: string; isDefault: boolean }
       <directionalLight position={[0, -10, 0]} intensity={0.4} />
       <pointLight position={[5, 0, 5]} intensity={0.5} />
       <pointLight position={[-5, 0, -5]} intensity={0.5} />
-
       <Full360OrbitControls />
     </>
   )
@@ -339,8 +345,8 @@ export default function Simple3DViewer({
   modelUrl,
   isDefault = false,
   productName = "Product",
-  width = 500,
-  height = 500,
+  width,
+  height,
   className = "",
   showControls = true,
   showARButton = false,
@@ -354,7 +360,7 @@ export default function Simple3DViewer({
       modelUrl === "undefined" ||
       modelUrl === "null"
     ) {
-      return "/assets/3d/shirt.glb"
+      return "/assets/3d/realistic_yellow_polo_shirt.glb"
     }
     return modelUrl.trim()
   }, [modelUrl])
@@ -364,7 +370,7 @@ export default function Simple3DViewer({
   const [key, setKey] = useState(0)
   const [autoRotate, setAutoRotate] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [currentView, setCurrentView] = useState<'front' | 'left' | 'right' | 'back'>('front');
+  const [currentView, setCurrentView] = useState<"front" | "left" | "right" | "back">("front")
 
   useEffect(() => {
     setMounted(true)
@@ -408,35 +414,42 @@ export default function Simple3DViewer({
 
   const rotateToFront = () => {
     if ((window as any).cameraControls) {
-      (window as any).cameraControls.rotateToAngle(0)
+      ;(window as any).cameraControls.rotateToAngle(0)
     }
-    setCurrentView('front');
+    setCurrentView("front")
   }
 
   const rotateToBack = () => {
     if ((window as any).cameraControls) {
-      (window as any).cameraControls.rotateToAngle(Math.PI)
+      ;(window as any).cameraControls.rotateToAngle(Math.PI)
     }
-    setCurrentView('back');
+    setCurrentView("back")
   }
 
   const rotateToSide = () => {
     if ((window as any).cameraControls) {
-      (window as any).cameraControls.rotateToAngle(Math.PI / 2)
+      ;(window as any).cameraControls.rotateToAngle(Math.PI / 2)
     }
-    setCurrentView('left');
+    setCurrentView("left")
   }
 
   const rotateToRight = () => {
     if ((window as any).cameraControls) {
-      (window as any).cameraControls.rotateToAngle(-Math.PI / 2)
+      ;(window as any).cameraControls.rotateToAngle(-Math.PI / 2)
     }
-    setCurrentView('right');
+    setCurrentView("right")
   }
 
   if (!mounted) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 rounded-lg ${className}`} style={{ width, height }}>
+      <div
+        className={`flex items-center justify-center bg-gray-100 rounded-lg ${className}`}
+        style={{
+          width: width || "100%",
+          height: height || "100%",
+          minHeight: "200px",
+        }}
+      >
         <div className="text-center">
           <div className="animate-pulse bg-gray-300 w-16 h-16 rounded-lg mx-auto mb-2"></div>
           <div className="text-sm text-gray-600 dark:text-gray-200">Loading 3D Viewer...</div>
@@ -446,7 +459,14 @@ export default function Simple3DViewer({
   }
 
   const viewerContent = (
-    <div className="relative w-full h-full overflow-hidden" ref={containerRef}>
+    <div
+      className="relative w-full h-full flex items-center justify-center"
+      ref={containerRef}
+      style={{
+        minHeight: isFullscreen ? "100vh" : "200px",
+        aspectRatio: isFullscreen ? "auto" : "1/1",
+      }}
+    >
       <Canvas
         key={key}
         camera={{
@@ -473,50 +493,52 @@ export default function Simple3DViewer({
         <Scene modelUrl={validModelUrl} isDefault={isDefault} />
       </Canvas>
 
-      {/* Enhanced Controls */}
+      {/* Enhanced Controls - Responsive positioning */}
       {showControls && (
-        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex flex-col gap-1 sm:gap-2 z-10">
           <Button
             size="sm"
             variant="outline"
             onClick={handleReset}
-            className="bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+            className="bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg w-8 h-8 sm:w-auto sm:h-auto p-1 sm:p-2"
             title="Reset Camera"
           >
-            <RotateCcw className="w-4 h-4 text-gray-500 dark:text-gray-300 group-hover:text-primary" />
+            <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-300 group-hover:text-primary" />
           </Button>
           <Button
             size="sm"
             variant={autoRotate ? "default" : "outline"}
             onClick={toggleAutoRotate}
-            className={`bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg ${autoRotate ? 'ring-2 ring-primary' : ''}`}
+            className={`bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg w-8 h-8 sm:w-auto sm:h-auto p-1 sm:p-2 ${autoRotate ? "ring-2 ring-primary" : ""}`}
             title="Toggle Auto-Rotate"
           >
-            <RotateCw className={`w-4 h-4 ${autoRotate ? 'text-primary' : 'text-gray-500 dark:text-gray-300 group-hover:text-primary'}`} />
+            <RotateCw
+              className={`w-3 h-3 sm:w-4 sm:h-4 ${autoRotate ? "text-primary" : "text-gray-500 dark:text-gray-300 group-hover:text-primary"}`}
+            />
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={toggleFullscreen}
-            className="bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg"
+            className="bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg w-8 h-8 sm:w-auto sm:h-auto p-1 sm:p-2"
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
             {isFullscreen ? (
-              <Minimize2 className="w-4 h-4 text-primary" />
+              <Minimize2 className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-500 dark:text-gray-300 group-hover:text-primary" />
+              <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-300 group-hover:text-primary" />
             )}
           </Button>
         </div>
       )}
 
-      {/* Quick View Buttons */}
+      {/* Quick View Buttons - Responsive */}
       {showControls && (
-        <div className="absolute bottom-4 right-4 flex gap-2 z-10">
+        <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 flex gap-1 sm:gap-2 z-10">
           <Button
             size="sm"
             onClick={rotateToFront}
-            className={`text-xs shadow-lg transition-colors duration-150 ${currentView === 'front' ? 'bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground' : 'bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground'}`}
+            className={`text-xs shadow-lg transition-colors duration-150 px-2 py-1 sm:px-3 sm:py-2 ${currentView === "front" ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground" : "bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground"}`}
             title="Front View"
           >
             Front
@@ -524,7 +546,7 @@ export default function Simple3DViewer({
           <Button
             size="sm"
             onClick={rotateToSide}
-            className={`text-xs shadow-lg transition-colors duration-150 ${currentView === 'left' ? 'bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground' : 'bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground'}`}
+            className={`text-xs shadow-lg transition-colors duration-150 px-2 py-1 sm:px-3 sm:py-2 ${currentView === "left" ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground" : "bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground"}`}
             title="Left View"
           >
             Side
@@ -532,7 +554,7 @@ export default function Simple3DViewer({
           <Button
             size="sm"
             onClick={rotateToRight}
-            className={`text-xs shadow-lg transition-colors duration-150 ${currentView === 'right' ? 'bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground' : 'bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground'}`}
+            className={`text-xs shadow-lg transition-colors duration-150 px-2 py-1 sm:px-3 sm:py-2 ${currentView === "right" ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground" : "bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground"}`}
             title="Right View"
           >
             Right
@@ -540,7 +562,7 @@ export default function Simple3DViewer({
           <Button
             size="sm"
             onClick={rotateToBack}
-            className={`text-xs shadow-lg transition-colors duration-150 ${currentView === 'back' ? 'bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground' : 'bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground'}`}
+            className={`text-xs shadow-lg transition-colors duration-150 px-2 py-1 sm:px-3 sm:py-2 ${currentView === "back" ? "bg-primary text-primary-foreground dark:bg-primary dark:text-primary-foreground" : "bg-white/80 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-primary/80 dark:hover:bg-primary/60 hover:text-primary-foreground"}`}
             title="Back View"
           >
             Back
@@ -548,22 +570,23 @@ export default function Simple3DViewer({
         </div>
       )}
 
-      {/* Instructions - only show in normal mode */}
+      {/* Instructions - Responsive positioning and sizing */}
       {showControls && !isFullscreen && (
-        <div className="absolute top-4 left-4 z-10">
-          <div className="bg-white/90 dark:bg-gray-800 backdrop-blur-sm rounded-lg p-3 text-xs text-gray-600 dark:text-gray-100 shadow-lg">
-            <div>🖱️ Drag for 360° rotation</div>
-            <div>🔄 Scroll to zoom</div>
-            <div>👆 Double-click for auto-rotate</div>
+        <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10">
+          <div className="bg-white/90 dark:bg-gray-800 backdrop-blur-sm rounded-lg p-2 sm:p-3 text-xs text-gray-600 dark:text-gray-100 shadow-lg max-w-[150px] sm:max-w-none">
+            <div className="hidden sm:block">🖱️ Drag for 360° rotation</div>
+            <div className="hidden sm:block">🔄 Scroll to zoom</div>
+            <div className="hidden sm:block">👆 Double-click for auto-rotate</div>
+            <div className="sm:hidden">Drag & scroll to explore</div>
           </div>
         </div>
       )}
 
-      {/* Status Badge */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <Badge className="bg-primary/90 dark:bg-primary/80 text-primary-foreground shadow-lg">
-          {(isDefault && productName === 'Product') ? 'Default Model' : productName}
-          {autoRotate && ' • Auto-rotating'}
+      {/* Status Badge - Responsive */}
+      <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 z-10">
+        <Badge className="bg-primary/90 dark:bg-primary/80 text-primary-foreground shadow-lg text-xs">
+          {isDefault && productName === "Product" ? "Default Model" : productName}
+          {autoRotate && " • Auto-rotating"}
         </Badge>
       </div>
     </div>
@@ -572,17 +595,32 @@ export default function Simple3DViewer({
   // Simple modal-style fullscreen that doesn't break anything
   if (isFullscreen) {
     return createPortal(
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 z-[99999] flex items-center justify-center" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-        <div className="w-full h-full max-w-7xl max-h-screen p-4">{viewerContent}</div>
+      <div
+        className="fixed inset-0 z-[99999] flex items-center justify-center"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "linear-gradient(135deg, #1D212D 0%, #2A2F3A 100%)",
+        }}
+      >
+        <div className="w-full h-full max-w-7xl max-h-screen p-2 sm:p-4">{viewerContent}</div>
       </div>,
-      document.body
+      document.body,
     )
   }
 
   return (
     <div
-      className={`bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg overflow-hidden relative ${className}`}
-      style={{ width, height }}
+      className={`relative w-full ${className}`}
+      style={{
+        width: width || "100%",
+        height: height || "auto",
+        minHeight: "200px",
+        aspectRatio: width && height ? `${width}/${height}` : "1/1",
+      }}
     >
       <div className="absolute inset-0">{viewerContent}</div>
     </div>

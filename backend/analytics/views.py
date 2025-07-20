@@ -9,6 +9,10 @@ from django.utils import timezone
 from permissions import IsSellerOrAdmin
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema
+from users.models import CustomUser
+from orders.models import Order, OrderItem
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
 
 # Create a serializer for the dashboard stats
 class DayViewsSerializer(serializers.Serializer):
@@ -38,6 +42,8 @@ def dashboard_stats(request):
     # Time range
     days = int(request.query_params.get('days', 30))
     start_date = timezone.now() - timedelta(days=days)
+    prev_start_date = start_date - timedelta(days=days)
+    prev_end_date = start_date
     
     # Filter by seller if the user is a seller
     user = request.user
@@ -102,8 +108,129 @@ def dashboard_stats(request):
                 category_id=category['id']
             ).count()
     
+    # --- New: Platform stats ---
+    # Current period
+    if user.role == 'seller' and not user.is_staff:
+        # For sellers, only count their orders and revenue
+        seller_orders = Order.objects.filter(
+            items__product__seller=user,
+            status__in=['processing', 'shipped', 'delivered']
+        ).distinct()
+        total_orders = seller_orders.count()
+        total_revenue = seller_orders.aggregate(total=Sum('total_price'))['total'] or 0
+        total_products = Product.objects.filter(seller=user).count()
+        # Count unique customers who bought from this seller
+        customers_count = CustomUser.objects.filter(
+            orders__items__product__seller=user
+        ).distinct().count()
+    else:
+        # For admins, count all platform stats
+        total_users = CustomUser.objects.count()
+        total_orders = Order.objects.count()
+        total_products = Product.objects.count()
+        total_revenue = Order.objects.filter(status__in=['processing', 'shipped', 'delivered']).aggregate(
+            total=Sum('total_price')
+        )['total'] or 0
+        customers_count = CustomUser.objects.filter(role='customer').count()
+        sellers_count = CustomUser.objects.filter(role='seller').count()
+        admins_count = CustomUser.objects.filter(role='admin').count()
+    # Previous period
+    if user.role == 'seller' and not user.is_staff:
+        # For sellers, only count their previous period stats
+        prev_seller_orders = Order.objects.filter(
+            items__product__seller=user,
+            created_at__gte=prev_start_date, 
+            created_at__lt=prev_end_date,
+            status__in=['processing', 'shipped', 'delivered']
+        ).distinct()
+        prev_orders = prev_seller_orders.count()
+        prev_revenue = prev_seller_orders.aggregate(total=Sum('total_price'))['total'] or 0
+        prev_products = Product.objects.filter(
+            seller=user,
+            created_at__gte=prev_start_date, 
+            created_at__lt=prev_end_date
+        ).count()
+        prev_users = 0  # Sellers don't need user growth stats
+    else:
+        # For admins, count all previous period stats
+        prev_users = CustomUser.objects.filter(created_at__gte=prev_start_date, created_at__lt=prev_end_date).count()
+        prev_orders = Order.objects.filter(created_at__gte=prev_start_date, created_at__lt=prev_end_date).count()
+        prev_products = Product.objects.filter(created_at__gte=prev_start_date, created_at__lt=prev_end_date).count()
+        prev_revenue = Order.objects.filter(
+            created_at__gte=prev_start_date, created_at__lt=prev_end_date,
+            status__in=['processing', 'shipped', 'delivered']
+        ).aggregate(total=Sum('total_price'))['total'] or 0
+    # Calculate percentage change
+    def percent_change(current, prev):
+        if prev == 0:
+            return 100.0 if current > 0 else 0.0
+        return ((current - prev) / prev) * 100
+    users_change = percent_change(total_users, prev_users)
+    orders_change = percent_change(total_orders, prev_orders)
+    products_change = percent_change(total_products, prev_products)
+    revenue_change = percent_change(total_revenue, prev_revenue)
+    
+    # --- New: Sales by Month ---
+    months_back = 12
+    sales_by_month = []
+    now = timezone.now()
+    for i in range(months_back):
+        month_start = (now.replace(day=1) - timedelta(days=now.day - 1)).replace(month=(now.month - i - 1) % 12 + 1, year=now.year - ((now.month - i - 1) // 12))
+        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        
+        if user.role == 'seller' and not user.is_staff:
+            # For sellers, only count their orders
+            month_orders = Order.objects.filter(
+                items__product__seller=user,
+                created_at__gte=month_start, 
+                created_at__lt=month_end, 
+                status__in=['processing', 'shipped', 'delivered']
+            ).distinct()
+        else:
+            # For admins, count all orders
+            month_orders = Order.objects.filter(
+                created_at__gte=month_start, 
+                created_at__lt=month_end, 
+                status__in=['processing', 'shipped', 'delivered']
+            )
+        
+        month_sales = month_orders.aggregate(total=Sum('total_price'))['total'] or 0
+        month_count = month_orders.count()
+        sales_by_month.append({
+            'name': month_start.strftime('%b'),
+            'sales': float(month_sales),
+            'orders': month_count
+        })
+    sales_by_month = list(reversed(sales_by_month))
+    
+    # Get top selling products for sellers
+    if user.role == 'seller' and not user.is_staff:
+        top_selling_products = OrderItem.objects.filter(
+            product__seller=user,
+            order__status__in=['processing', 'shipped', 'delivered']
+        ).values('product__name').annotate(
+            total_quantity=Sum('quantity'),
+            total_sales=Sum('price')
+        ).order_by('-total_quantity')[:5]
+    else:
+        top_selling_products = []
+
     return Response({
         'views_by_day': list(views_by_day),
         'top_products': list(top_products),
         'top_categories': list(top_categories),
+        'total_users': total_users,
+        'total_orders': total_orders,
+        'total_products': total_products,
+        'total_sales': float(total_revenue),  # Changed from total_revenue to total_sales
+        'total_customers': customers_count,  # Changed from customers_count to total_customers
+        'customers_count': customers_count,
+        'sellers_count': sellers_count,
+        'admins_count': admins_count,
+        'users_change': users_change,
+        'orders_change': orders_change,
+        'products_change': products_change,
+        'revenue_change': revenue_change,
+        'sales_by_month': sales_by_month,
+        'top_selling_products': list(top_selling_products),
     })

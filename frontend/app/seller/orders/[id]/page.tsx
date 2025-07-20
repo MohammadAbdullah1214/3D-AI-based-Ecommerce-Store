@@ -204,15 +204,33 @@ export default function SellerOrderDetailPage() {
                                 className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                               >
                                 <TableCell className="font-medium text-white text-base">
-                                  {item.product_details?.name || `Product #${item.product}`}
+                                  <div className="flex items-center space-x-3">
+                                    {item.product_details?.images?.[0]?.image ? (
+                                      <img
+                                        src={item.product_details.images[0].image}
+                                        alt={item.product_details?.name || 'Product'}
+                                        className="w-12 h-12 object-cover rounded-lg"
+                                      />
+                                    ) : (
+                                      <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
+                                        <Package className="h-6 w-6 text-gray-400" />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <div className="font-medium">{item.product_details?.name || `Product #${item.product}`}</div>
+                                      <div className="text-sm text-gray-400">
+                                        {item.product_details?.category_details?.name || 'Uncategorized'}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                  {item.product_details?.seller_name || item.product_details?.seller_username || 'Unknown Seller'}
+                                  {item.seller_name || item.seller_username || item.product_details?.seller_name || item.product_details?.seller_username || 'Unknown Seller'}
                                 </TableCell>
-                                <TableCell className="text-gray-300 text-base">${formatCurrency(item.price)}</TableCell>
+                                <TableCell className="text-gray-300 text-base">${typeof item.price === 'number' ? item.price.toFixed(2) : Number(item.price).toFixed(2)}</TableCell>
                                 <TableCell className="text-gray-300 text-base">{item.quantity}</TableCell>
                                 <TableCell className="text-right text-white font-semibold text-base">
-                                  ${formatCurrency(item.subtotal)}
+                                  ${typeof item.subtotal === 'number' ? item.subtotal.toFixed(2) : Number(item.subtotal).toFixed(2)}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -225,8 +243,9 @@ export default function SellerOrderDetailPage() {
                     <div>
                       <h3 className="text-lg font-medium mb-4 text-white">Customer Information</h3>
                       <div className="bg-white/5 p-6 rounded-xl">
-                        <p className="text-white font-medium text-base">Customer: {order.customer_username}</p>
-                        <p className="text-gray-300 mt-2 text-base">Customer ID: {order.customer}</p>
+                        <p className="text-white font-medium text-base">Customer: {order.customer_full_name || order.user_username || order.customer_username}</p>
+                        <p className="text-gray-300 mt-2 text-base">Customer ID: {order.user || order.customer}</p>
+                        <p className="text-gray-300 mt-1 text-base">Email: {order.user_email || 'Not provided'}</p>
                       </div>
                     </div>
 
@@ -335,7 +354,7 @@ export default function SellerOrderDetailPage() {
                     <div className="space-y-4">
                       <div className="flex justify-between text-base">
                         <span className="text-gray-300">Subtotal</span>
-                        <span className="text-white font-semibold">${formatCurrency(order.total_price)}</span>
+                        <span className="text-white font-semibold">${typeof order.total_price === 'number' ? order.total_price.toFixed(2) : Number(order.total_price).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-base">
                         <span className="text-gray-300">Shipping</span>
@@ -348,7 +367,7 @@ export default function SellerOrderDetailPage() {
                       <Separator className="my-4 bg-white/20" />
                       <div className="flex justify-between font-bold text-xl">
                         <span className="text-white">Total</span>
-                        <span style={{ color: "#F3C998" }}>${formatCurrency(order.total_price)}</span>
+                        <span style={{ color: "#F3C998" }}>${typeof order.total_price === 'number' ? order.total_price.toFixed(2) : Number(order.total_price).toFixed(2)}</span>
                       </div>
                     </div>
                     <div className="mt-8 space-y-4">

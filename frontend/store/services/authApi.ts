@@ -6,6 +6,40 @@ export interface RegisterRequestWithNames extends RegisterRequest {
   last_name?: string
 }
 
+export interface UsernameAvailabilityResponse {
+  available: boolean
+  message: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ForgotPasswordResponse {
+  message: string
+  email: string
+}
+
+export interface VerifyOTPRequest {
+  email: string
+  otp: string
+}
+
+export interface VerifyOTPResponse {
+  message: string
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  email: string
+  otp: string
+  new_password: string
+}
+
+export interface ResetPasswordResponse {
+  message: string
+}
+
 export const authApi = api.injectEndpoints({
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginRequest>({
@@ -45,6 +79,30 @@ export const authApi = api.injectEndpoints({
         body: userData,
       }),
       invalidatesTags: ["Auth", "User"],
+    }),
+    checkUsernameAvailability: builder.query<UsernameAvailabilityResponse, string>({
+      query: (username) => `auth/check-username/?username=${encodeURIComponent(username)}`,
+    }),
+    forgotPassword: builder.mutation<ForgotPasswordResponse, ForgotPasswordRequest>({
+      query: (data) => ({
+        url: "auth/forgot-password/",
+        method: "POST",
+        body: data,
+      }),
+    }),
+    verifyOTP: builder.mutation<VerifyOTPResponse, VerifyOTPRequest>({
+      query: (data) => ({
+        url: "auth/verify-otp/",
+        method: "POST",
+        body: data,
+      }),
+    }),
+    resetPassword: builder.mutation<ResetPasswordResponse, ResetPasswordRequest>({
+      query: (data) => ({
+        url: "auth/reset-password/",
+        method: "POST",
+        body: data,
+      }),
     }),
     getMe: builder.query<User, void>({
       query: () => "users/me/",
@@ -86,4 +144,14 @@ export const authApi = api.injectEndpoints({
   }),
 })
 
-export const { useLoginMutation, useRegisterMutation, useGetMeQuery, useRefreshTokenMutation, useLogoutMutation } = authApi
+export const { 
+  useLoginMutation, 
+  useRegisterMutation, 
+  useCheckUsernameAvailabilityQuery,
+  useForgotPasswordMutation,
+  useVerifyOTPMutation,
+  useResetPasswordMutation,
+  useGetMeQuery, 
+  useRefreshTokenMutation, 
+  useLogoutMutation 
+} = authApi

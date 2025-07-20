@@ -122,15 +122,8 @@ export default function SellerDashboard() {
     }
   }
 
-  const salesData = [
-    { name: "Jan", sales: 4000 },
-    { name: "Feb", sales: 3000 },
-    { name: "Mar", sales: 5000 },
-    { name: "Apr", sales: 2780 },
-    { name: "May", sales: 1890 },
-    { name: "Jun", sales: 2390 },
-    { name: "Jul", sales: 3490 },
-  ]
+  // For sales overview and analytics charts, use stats.sales_by_month only.
+  const salesData = stats?.sales_by_month || [];
 
   const topProducts =
     products
@@ -243,12 +236,8 @@ export default function SellerDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Sales</p>
-                          <h3 className="text-3xl font-bold text-white">${stats?.total_sales || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">${formatCurrency(stats?.total_sales || 0)}</h3>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-1 text-emerald-400">
-                        <ArrowUpRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">12%</span>
                       </div>
                     </div>
                   </CardContent>
@@ -269,10 +258,6 @@ export default function SellerDashboard() {
                           <h3 className="text-3xl font-bold text-white">{orders?.length || 0}</h3>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-1 text-emerald-400">
-                        <ArrowUpRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">8%</span>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -292,10 +277,6 @@ export default function SellerDashboard() {
                           <h3 className="text-3xl font-bold text-white">{products?.length || 0}</h3>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-1 text-emerald-400">
-                        <ArrowUpRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">15%</span>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -312,12 +293,8 @@ export default function SellerDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Customers</p>
-                          <h3 className="text-3xl font-bold text-white">{stats?.total_customers || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">{stats?.total_customers || orders?.length || 0}</h3>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-1 text-red-400">
-                        <ArrowDownRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">3%</span>
                       </div>
                     </div>
                   </CardContent>
@@ -354,6 +331,9 @@ export default function SellerDashboard() {
                           />
                         </LineChart>
                       </ResponsiveContainer>
+                      {salesData.length === 0 && (
+                        <div className="text-center py-8 text-gray-400 text-lg">No sales data available.</div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -423,7 +403,7 @@ export default function SellerDashboard() {
                               className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                             >
                               <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
-                              <TableCell className="text-gray-300 text-base">{order.customer_username}</TableCell>
+                              <TableCell className="text-gray-300 text-base">{order.customer_full_name || order.user_username || order.customer_username || 'Customer'}</TableCell>
                               <TableCell className="text-gray-300 text-base">
                                 {new Date(order.created_at).toLocaleDateString()}
                               </TableCell>
@@ -443,7 +423,7 @@ export default function SellerDashboard() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right text-white font-semibold text-base">
-                                ${formatCurrency(order.total_price)}
+                                ${typeof order.total_price === 'number' ? order.total_price.toFixed(2) : Number(order.total_price).toFixed(2)}
                               </TableCell>
                             </TableRow>
                           ))
@@ -759,7 +739,7 @@ export default function SellerDashboard() {
                               >
                                 <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                  {order.customer_username || "Customer"}
+                                  {order.customer_full_name || order.user_username || order.customer_username || "Customer"}
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">
                                   {new Date(order.created_at).toLocaleDateString()}
@@ -781,7 +761,7 @@ export default function SellerDashboard() {
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">{order.items?.length || 0}</TableCell>
                                 <TableCell className="text-right text-white font-semibold text-base">
-                                  ${formatCurrency(order.total_price)}
+                                  ${typeof order.total_price === 'number' ? order.total_price.toFixed(2) : Number(order.total_price).toFixed(2)}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex space-x-3">
@@ -858,6 +838,9 @@ export default function SellerDashboard() {
                           <Bar dataKey="sales" fill="#F3C998" name="Sales ($)" />
                         </BarChart>
                       </ResponsiveContainer>
+                      {salesData.length === 0 && (
+                        <div className="text-center py-8 text-gray-400 text-lg">No sales data available.</div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

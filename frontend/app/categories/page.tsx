@@ -5,6 +5,7 @@ import { useGetCategoriesQuery } from "@/store/services/productApi"
 import HeaderWrapper from "../header-wrapper"
 import Footer from "@/components/layout/footer"
 import CategoryCard from "@/components/home/category-card"
+import { Category } from "@/app/types/product"
 
 export default function CategoriesPage() {
   const { data: categories, isLoading, error } = useGetCategoriesQuery()
@@ -17,32 +18,21 @@ export default function CategoriesPage() {
   const getCategoryTree = () => {
     if (!categories) return { rootCategories: [], childrenMap: {} }
 
-    const childrenMap = {}
+    const childrenMap: Record<number, Category[]> = {}
     categories.forEach((cat) => {
-      if (cat.parent) {
-        if (!childrenMap[cat.parent]) {
-          childrenMap[cat.parent] = []
+      if (cat.parent_id) {
+        if (!childrenMap[cat.parent_id]) {
+          childrenMap[cat.parent_id] = []
         }
-        childrenMap[cat.parent].push(cat)
+        childrenMap[cat.parent_id].push(cat)
       }
     })
 
-    const rootCategories = categories.filter((cat) => !cat.parent)
+    const rootCategories = categories.filter((cat) => !cat.parent_id)
     return { rootCategories, childrenMap }
   }
 
   const { rootCategories, childrenMap } = getCategoryTree()
-
-  const fallbackCategories = [
-    { id: 1, name: "Electronics", image: "/images/categories/electronics.jpg", count: "120+ Products" },
-    { id: 2, name: "Fashion", image: "/images/categories/fashion.jpg", count: "250+ Products" },
-    { id: 3, name: "Home & Garden", image: "/images/categories/home-garden.jpg", count: "180+ Products" },
-    { id: 4, name: "Beauty", image: "/images/categories/beauty.jpg", count: "95+ Products" },
-    { id: 5, name: "Sports", image: "/images/categories/sports.jpg", count: "75+ Products" },
-    { id: 6, name: "Toys", image: "/images/categories/toys.jpg", count: "60+ Products" },
-    { id: 7, name: "Books", image: "/images/categories/books.jpg", count: "110+ Products" },
-    { id: 8, name: "Jewelry", image: "/images/categories/jewelry.jpg", count: "45+ Products" },
-  ]
 
   if (isLoading) {
     return (
@@ -105,19 +95,7 @@ export default function CategoriesPage() {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {fallbackCategories.map((category) => (
-                      <div
-                        key={category.id}
-                        className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10 group"
-                      >
-                        <CategoryCard
-                          name={category.name}
-                          image={category.image}
-                          count={category.count}
-                          href={`/categories/${category.id}`}
-                        />
-                      </div>
-                    ))}
+                    {/* Fallback categories removed */}
                   </div>
                 </div>
               ) : (
@@ -139,7 +117,7 @@ export default function CategoriesPage() {
                                 href={`/categories/${rootCategory.id}`}
                               />
                             </div>
-                            {childrenMap[rootCategory.id]?.map((childCategory) => (
+                            {childrenMap[rootCategory.id]?.map((childCategory: Category) => (
                               <div
                                 key={childCategory.id}
                                 className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10 group"
@@ -158,7 +136,7 @@ export default function CategoriesPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                      {categories.map((category) => (
+                      {categories.map((category: Category) => (
                         <div
                           key={category.id}
                           className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl overflow-hidden hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10 group"

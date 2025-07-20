@@ -9,6 +9,8 @@ export interface OrderItem {
   quantity: number
   price: number
   subtotal: number
+  seller_name?: string
+  seller_username?: string
 }
 
 export interface Payment {
@@ -26,6 +28,9 @@ export interface Order {
   id: number
   customer: number
   customer_username: string
+  user_username?: string
+  user?: number
+  user_email?: string
   created_at: string
   updated_at: string
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
@@ -35,6 +40,8 @@ export interface Order {
   shipping_address: string
   tracking_number: string | null
   notes: string | null
+  customer_full_name?: string
+  seller_names?: string
 }
 
 export interface CheckoutRequest {
@@ -179,6 +186,13 @@ export const orderApi = api.injectEndpoints({
       query: () => "orders/",
       providesTags: ["Order"],
     }),
+    deleteOrder: builder.mutation<void, number>({
+      query: (orderId) => ({
+        url: `orders/${orderId}/`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Order"],
+    }),
   }),
 })
 
@@ -193,4 +207,5 @@ export const {
   useGetRecentOrdersQuery,
   // Admin specific hooks
   useGetAllOrdersQuery,
+  useDeleteOrderMutation,
 } = orderApi

@@ -5,7 +5,10 @@ from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from users.views import UserViewSet, user_login
+from users.views import (
+    UserViewSet, user_login, check_username_availability,
+    forgot_password, verify_otp, reset_password
+)
 from products.views import WishlistViewSet
 
 router = DefaultRouter()
@@ -16,6 +19,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/auth/login/', user_login, name='user_login'),
+    path('api/auth/check-username/', check_username_availability, name='check_username_availability'),
+    path('api/auth/forgot-password/', forgot_password, name='forgot_password'),
+    path('api/auth/verify-otp/', verify_otp, name='verify_otp'),
+    path('api/auth/reset-password/', reset_password, name='reset_password'),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/products/', include('products.urls')),

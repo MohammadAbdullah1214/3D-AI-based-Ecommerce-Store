@@ -26,16 +26,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
     variant_details = ProductVariantSerializer(source='variant', read_only=True)
     quantity = serializers.IntegerField(min_value=1)
     price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    subtotal = serializers.SerializerMethodField()
+    product_name = serializers.CharField(read_only=True)
+    product_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    seller_name = serializers.CharField(read_only=True)
+    seller_username = serializers.CharField(read_only=True)
     
     class Meta:
         model = OrderItem
-        fields = ['id', 'order', 'product', 'product_details', 'variant', 'variant_details', 'quantity', 'price']
+        fields = ['id', 'order', 'product', 'product_details', 'variant', 'variant_details', 'quantity', 'price', 'subtotal', 'product_name', 'product_price', 'seller_name', 'seller_username']
         read_only_fields = ['order']
+    
+    def get_subtotal(self, obj):
+        return obj.price * obj.quantity
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    customer_full_name = serializers.SerializerMethodField()
+    seller_names = serializers.SerializerMethodField()
     cancelled_by_username = serializers.SerializerMethodField()
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
     payment_details = serializers.SerializerMethodField()
@@ -44,7 +55,7 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'user', 'user_username', 'status', 'created_at', 'updated_at',
+            'id', 'user', 'user_username', 'user_email', 'customer_full_name', 'seller_names', 'status', 'created_at', 'updated_at',
             'shipping_address', 'billing_address', 'payment_method', 'payment_status',
             'total_price', 'tracking_number', 'notes', 'items',
             'cancelled_at', 'cancelled_by', 'cancelled_by_username', 'cancelled_by_role',
@@ -76,6 +87,19 @@ class OrderSerializer(serializers.ModelSerializer):
             return PaymentSerializer(payment).data  # type: ignore
         except:
             return None
+
+    def get_customer_full_name(self, obj):
+        return obj.user.get_full_name() or obj.user.username
+
+    def get_seller_names(self, obj):
+        sellers = set()
+        for item in obj.items.all():
+            # Use snapshot if available, else fallback
+            if item.seller_name:
+                sellers.add(item.seller_name)
+            elif hasattr(item.product, 'seller') and item.product.seller:
+                sellers.add(item.product.seller.get_full_name() or item.product.seller.username)
+        return ', '.join(sellers) if sellers else 'Unknown'
 
 
 class OrderCreateSerializer(serializers.ModelSerializer):
@@ -134,13 +158,17 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 # Apply variant price adjustment
                 price += variant.price_adjustment
             
-            # Create the order item
+            # Create the order item with snapshot fields
             OrderItem.objects.create(  # type: ignore
                 order=order,
                 product=product,
                 variant=variant,
                 quantity=cart_item.quantity,
-                price=price
+                price=price,
+                product_name=product.name,
+                product_price=price,
+                seller_name=(product.seller.get_full_name() if hasattr(product.seller, 'get_full_name') and callable(product.seller.get_full_name) else str(product.seller)),
+                seller_username=getattr(product.seller, 'username', str(product.seller))
             )
             
             # Update stock

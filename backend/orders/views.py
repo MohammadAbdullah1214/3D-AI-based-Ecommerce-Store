@@ -57,8 +57,14 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'create':
             return [IsAuthenticated()]
-        elif self.action in ['update', 'partial_update', 'destroy']:
+        elif self.action in ['update', 'partial_update']:
             return [IsAuthenticated(), IsOrderOwner()]
+        elif self.action == 'destroy':
+            # Allow admin/staff to delete any order, others only their own
+            if self.request.user.is_staff or getattr(self.request.user, 'role', None) == 'admin':
+                return [IsAuthenticated()]
+            else:
+                return [IsAuthenticated(), IsOrderOwner()]
         elif self.action in ['seller_orders', 'update_status']:
             return [IsAuthenticated(), IsSellerOrAdmin()]
         return [IsAuthenticated()]

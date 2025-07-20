@@ -62,10 +62,15 @@ class OrderStatusHistory(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
     variant = models.ForeignKey(ProductVariant, on_delete=models.SET_NULL, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at time of purchase
+    # Snapshot fields
+    product_name = models.CharField(max_length=255, blank=True, null=True)
+    product_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    seller_name = models.CharField(max_length=255, blank=True, null=True)
+    seller_username = models.CharField(max_length=255, blank=True, null=True)
     
     def __str__(self):
         variant_info = f" - {self.variant.sku}" if self.variant else ""

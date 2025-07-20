@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useRegisterMutation } from "@/store/services/authApi"
+import { useRegisterMutation, useCheckUsernameAvailabilityQuery } from "@/store/services/authApi"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -40,11 +40,11 @@ export default function RegisterPage() {
     lastName: "",
     role: "customer" as "customer" | "seller",
   })
-
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [usernameToCheck, setUsernameToCheck] = useState<string>("")
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
     score: 0,
     label: "Very Weak",
@@ -55,6 +55,12 @@ export default function RegisterPage() {
 
   const router = useRouter()
   const [register, { isLoading }] = useRegisterMutation()
+  
+  // Username availability check
+  const { data: usernameData, isLoading: isCheckingUsername } = useCheckUsernameAvailabilityQuery(
+    usernameToCheck,
+    { skip: usernameToCheck.length < 3 }
+  )
 
   const passwordRequirements: PasswordRequirement[] = [
     {
@@ -89,7 +95,6 @@ export default function RegisterPage() {
       ...req,
       met: req.test(password),
     }))
-
     const metRequirements = requirements.filter((req) => req.met).length
     const score = (metRequirements / requirements.length) * 100
 
@@ -118,6 +123,17 @@ export default function RegisterPage() {
     }
   }
 
+  // Debounced username check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (formData.username.length >= 3) {
+        setUsernameToCheck(formData.username)
+      }
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [formData.username])
+
   useEffect(() => {
     if (formData.password) {
       setPasswordStrength(calculatePasswordStrength(formData.password))
@@ -130,6 +146,8 @@ export default function RegisterPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    // Clear error when user starts typing
+    if (error) setError(null)
   }
 
   const handleRoleChange = (value: string) => {
@@ -137,28 +155,66 @@ export default function RegisterPage() {
   }
 
   const validateForm = () => {
+    // Check if passwords match
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match")
       return false
     }
 
-    const strength = calculatePasswordStrength(formData.password)
-    if (strength.score < 60) {
-      setError("Password is too weak. Please meet at least 3 requirements for a stronger password.")
-      return false
-    }
-
-    if (!formData.email.includes("@")) {
+    // Check email format
+    if (!formData.email.includes("@") || !formData.email.includes(".")) {
       setError("Please enter a valid email address")
       return false
     }
 
+    // Check username length
     if (formData.username.length < 3) {
       setError("Username must be at least 3 characters long")
       return false
     }
 
+    // Check if username is available
+    if (usernameData && !usernameData.available) {
+      setError("Username is already taken. Please choose a different username.")
+      return false
+    }
+
+    // Check password requirements - enforce all requirements
+    const metRequirements = passwordStrength.requirements.filter((req) => req.met).length
+    if (metRequirements < passwordRequirements.length) {
+      setError("Password does not meet all security requirements. Please ensure your password meets all criteria.")
+      return false
+    }
+
+    // Check required fields
+    if (!formData.username || !formData.email || !formData.password) {
+      setError("Please fill in all required fields")
+      return false
+    }
+
     return true
+  }
+
+  const isFormValid = () => {
+    const basicValid = (
+      formData.username.length >= 3 &&
+      formData.email.includes("@") &&
+      formData.email.includes(".") &&
+      formData.password.length >= 8 &&
+      formData.password === formData.confirmPassword &&
+      formData.username &&
+      formData.email &&
+      formData.password &&
+      formData.confirmPassword
+    )
+
+    // Check if all password requirements are met
+    const passwordValid = passwordStrength.requirements.every(req => req.met)
+    
+    // Check if username is available
+    const usernameValid = !usernameData || usernameData.available
+
+    return basicValid && passwordValid && usernameValid
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -253,7 +309,7 @@ export default function RegisterPage() {
                 Welcome Aboard!
               </CardTitle>
               <CardDescription className="text-center text-white/80 text-base leading-relaxed">
-                Your secure account has been created successfully. You'll be redirected to sign in shortly.
+                Your account has been created successfully. You'll be redirected to sign in shortly.
               </CardDescription>
             </CardHeader>
             <CardFooter className="flex justify-center pt-4 pb-8">
@@ -291,7 +347,6 @@ export default function RegisterPage() {
           <div className="absolute bottom-40 left-40">
             <Shield className="w-5 h-5 opacity-12" style={{ color: "#F3C998" }} />
           </div>
-
           {/* Existing decorative elements */}
           <div
             className="absolute top-1/2 right-20 w-6 h-6 rounded-full opacity-20"
@@ -422,10 +477,29 @@ export default function RegisterPage() {
                     </p>
                   )}
                   {formData.username && formData.username.length >= 3 && (
-                    <p className="text-xs text-green-300 flex items-center gap-1">
-                      <Check className="w-3 h-3" />
-                      Username looks good
-                    </p>
+                    <div className="flex items-center gap-2">
+                      {isCheckingUsername ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin text-blue-300" />
+                          <span className="text-xs text-blue-300">Checking availability...</span>
+                        </>
+                      ) : usernameData?.available === true ? (
+                        <>
+                          <Check className="w-3 h-3 text-green-400" />
+                          <span className="text-xs text-green-300">Username is available</span>
+                        </>
+                      ) : usernameData?.available === false ? (
+                        <>
+                          <X className="w-3 h-3 text-red-400" />
+                          <span className="text-xs text-red-300">Username is already taken</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3 h-3 text-green-300" />
+                          <span className="text-xs text-green-300">Username looks good</span>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -489,7 +563,7 @@ export default function RegisterPage() {
                       value={formData.password}
                       onChange={handleChange}
                       required
-                      placeholder="Create a secure password"
+                      placeholder="Create a secure password (min 8 characters)"
                       className="h-12 bg-white/5 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-white/20 transition-all duration-200 text-base pr-12 text-white placeholder:text-white/60"
                     />
                     <Button
@@ -526,10 +600,9 @@ export default function RegisterPage() {
                           } as React.CSSProperties
                         }
                       />
-
                       {/* Password Requirements Checklist */}
                       <div className="space-y-2 p-3 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10">
-                        <p className="text-xs font-medium text-white/80 mb-2">Password Requirements:</p>
+                        <p className="text-xs font-medium text-white/80 mb-2">Password Requirements (Required):</p>
                         {passwordStrength.requirements.map((req, index) => (
                           <div key={index} className="flex items-center gap-2 text-xs">
                             {req.met ? (
@@ -540,6 +613,9 @@ export default function RegisterPage() {
                             <span className={req.met ? "text-green-300" : "text-white/60"}>{req.label}</span>
                           </div>
                         ))}
+                        <p className="text-xs text-white/60 mt-2 italic">
+                          Note: All requirements must be met to create an account.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -645,26 +721,48 @@ export default function RegisterPage() {
                   type="submit"
                   className="w-full h-12 backdrop-blur-sm text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
-                  disabled={isLoading || passwordStrength.score < 60}
+                  disabled={isLoading || !isFormValid()}
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Creating your secure account...
+                      Creating your account...
                     </>
                   ) : (
                     <>
                       <Shield className="mr-2 h-5 w-5" />
-                      Create Secure Account
+                      Create Account
                     </>
                   )}
                 </Button>
 
-                {passwordStrength.score < 60 && formData.password && (
-                  <p className="text-xs text-center text-yellow-300 flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    Please create a stronger password to continue
-                  </p>
+                {!isFormValid() && formData.password && formData.confirmPassword && (
+                  <div className="text-xs text-center space-y-1">
+                    {formData.password !== formData.confirmPassword && (
+                      <p className="text-red-300 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Passwords must match to continue
+                      </p>
+                    )}
+                    {formData.password.length < 8 && (
+                      <p className="text-red-300 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Password must be at least 8 characters long
+                      </p>
+                    )}
+                    {!passwordStrength.requirements.every(req => req.met) && formData.password.length >= 8 && (
+                      <p className="text-red-300 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Password must meet all security requirements
+                      </p>
+                    )}
+                    {usernameData?.available === false && (
+                      <p className="text-red-300 flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Username is already taken
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 <div className="relative">

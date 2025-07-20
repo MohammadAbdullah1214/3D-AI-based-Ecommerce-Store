@@ -1,3 +1,5 @@
+"use client"
+
 import HeroWithProduct from "@/components/home/hero-with-product"
 import FeaturedProductsWith3D from "@/components/home/featured-products-with-3d"
 import HeaderWrapper from "@/app/header-wrapper"
@@ -8,20 +10,14 @@ import { Badge } from "@/components/ui/badge"
 import { ShoppingBag, Star, Truck, Shield, Users, CreditCard, Gift } from "lucide-react"
 import Chatbot from "@/components/chatbot/chatbot"
 import Footer from "@/components/layout/footer"
+import CategoryShowcase from "@/components/home/category-showcase";
+import dynamic from 'next/dynamic';
 
 
 export default function HomePage() {
-  // Category data with image paths and product counts
-  const categories = [
-    { name: "Electronics", image: "/images/categories/electronics.jpg", count: "120+ Products" },
-    { name: "Fashion", image: "/images/categories/fashion.jpg", count: "250+ Products" },
-    { name: "Home & Garden", image: "/images/categories/home-garden.jpg", count: "180+ Products" },
-    { name: "Beauty", image: "/images/categories/beauty.jpg", count: "95+ Products" },
-    { name: "Sports", image: "/images/categories/sports.jpg", count: "75+ Products" },
-    { name: "Toys", image: "/images/categories/toys.jpg", count: "60+ Products" },
-    { name: "Books", image: "/images/categories/books.jpg", count: "110+ Products" },
-    { name: "Jewelry", image: "/images/categories/jewelry.jpg", count: "45+ Products" },
-  ]
+
+  const DynamicCategoryShowcase = dynamic(() => import('@/components/home/category-showcase'), { ssr: false });
+  const DynamicHeroWithProduct = dynamic(() => import('@/components/home/hero-with-product'), { ssr: false });
 
   return (
     <HeaderWrapper>
@@ -117,123 +113,14 @@ export default function HomePage() {
             {/* Categories Section - With glass effect */}
             <section className="py-24 relative overflow-hidden">
               <div className="container mx-auto px-4 relative z-10">
-                <div className="text-center mb-16">
+                <div className="text-center mb-6">
                   <Badge
                     className="mb-4 py-2 px-4 text-sm backdrop-blur-md"
                     style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
                   >
                     Categories
                   </Badge>
-                  <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">Shop by Category</h2>
-                  <p className="text-gray-300 max-w-2xl mx-auto text-lg leading-relaxed">
-                    Browse our wide selection of products across popular categories
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                  {categories.map((category) => (
-                    <Link key={category.name} href={`/products?category=${category.name.toLowerCase()}`}>
-                      <div className="group h-full rounded-2xl overflow-hidden backdrop-blur-xl bg-white/10 border border-white/20 hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10">
-                        <div className="aspect-square relative">
-                          <Image
-                            src={category.image || "/placeholder.svg"}
-                            alt={category.name}
-                            fill
-                            className="object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#1D212D]/90 via-[#1D212D]/50 to-transparent flex items-end">
-                            <div className="p-6 text-white">
-                              <h3 className="font-bold text-xl mb-2 group-hover:text-[#F3C998] transition-colors duration-300">
-                                {category.name}
-                              </h3>
-                              <p className="text-sm text-gray-300">{category.count}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Testimonials Section - With glass cards */}
-            <section className="py-24 relative overflow-hidden">
-              <div className="container mx-auto px-4 relative z-10">
-                <div className="text-center mb-16">
-                  <Badge
-                    className="mb-4 py-2 px-4 text-sm backdrop-blur-md"
-                    style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
-                  >
-                    <Users className="h-4 w-4 mr-2" /> Customer Reviews
-                  </Badge>
-                  <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">What Our Customers Say</h2>
-                  <p className="text-gray-300 max-w-2xl mx-auto text-lg leading-relaxed">
-                    Don't just take our word for it. Here's what our customers have to say about their shopping
-                    experience.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {[
-                    {
-                      name: "Sarah Johnson",
-                      role: "Regular Customer",
-                      comment:
-                        "I've been shopping here for over a year now and I'm always impressed by the quality of products and the fast shipping. Highly recommended!",
-                      rating: 5,
-                      image: "/serene-gaze.png",
-                    },
-                    {
-                      name: "Michael Chen",
-                      role: "New Customer",
-                      comment:
-                        "My first order arrived earlier than expected and the product quality exceeded my expectations. Will definitely be shopping here again.",
-                      rating: 5,
-                      image: "/thoughtful-gaze.png",
-                    },
-                    {
-                      name: "Emily Rodriguez",
-                      role: "Frequent Shopper",
-                      comment:
-                        "The customer service is exceptional. I had an issue with my order and it was resolved immediately. That's why I keep coming back!",
-                      rating: 4,
-                      image: "/serene-gaze.png",
-                    },
-                  ].map((testimonial, index) => (
-                    <div
-                      key={index}
-                      className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 h-full flex flex-col hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10"
-                    >
-                      <div className="flex items-center mb-6">
-                        {Array(5)
-                          .fill(0)
-                          .map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`h-5 w-5 ${i < testimonial.rating ? "fill-current" : "text-gray-400"}`}
-                              style={{ color: i < testimonial.rating ? "#F3C998" : undefined }}
-                            />
-                          ))}
-                      </div>
-                      <p className="text-white text-lg mb-8 flex-grow italic leading-relaxed">
-                        "{testimonial.comment}"
-                      </p>
-                      <div className="flex items-center mt-auto">
-                        <div className="w-12 h-12 rounded-full overflow-hidden mr-4 border-2 border-[#F3C998]/30">
-                          <Image
-                            src={testimonial.image || "/placeholder.svg"}
-                            alt={testimonial.name}
-                            width={48}
-                            height={48}
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-white">{testimonial.name}</h4>
-                          <p className="text-sm text-gray-300">{testimonial.role}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <DynamicCategoryShowcase />
                 </div>
               </div>
             </section>

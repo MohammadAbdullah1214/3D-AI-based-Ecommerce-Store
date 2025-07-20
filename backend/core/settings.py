@@ -181,6 +181,19 @@ if os.name == 'nt':  # Windows
     CELERY_WORKER_POOL = 'solo'
     CELERY_WORKER_CONCURRENCY = 1
 
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For testing - prints to console
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For real email sending
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='awami.mail69@gmail.com')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='iobmstudentS1234?')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='awami.mail69@gmail.com')
+
+# For development/testing, you can use console backend:
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 # 3D Generation Settings
 BLENDER_EXECUTABLE_PATH = r"C:/Users/Abdul Rehman/Downloads/blender-4.0.2-windows-x64/blender.exe"
 MAX_GENERATION_QUEUE_SIZE = env('MAX_GENERATION_QUEUE_SIZE', default=10)

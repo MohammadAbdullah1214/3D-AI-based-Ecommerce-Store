@@ -13,6 +13,7 @@ import { ArrowLeft, Package, Truck, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
+import { formatCurrency } from '@/utils/format-utils';
 
 export default function OrderDetailPage() {
   const params = useParams()
@@ -238,8 +239,24 @@ export default function OrderDetailPage() {
                                 key={item.id}
                                 className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                               >
-                                <TableCell className="font-medium text-white text-base">
-                                  {item.product_details?.name || `Product #${item.product}`}
+                                <TableCell>
+                                  <div className="flex items-center space-x-2">
+                                    <div className="h-12 w-12 flex-shrink-0">
+                                      {item.product_details?.image_urls?.[0] ? (
+                                        <img
+                                          src={item.product_details.image_urls[0]}
+                                          alt={item.product_details.name}
+                                          className="h-12 w-12 object-cover rounded border border-gray-700 bg-gray-800"
+                                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder-logo.png'; }}
+                                        />
+                                      ) : (
+                                        <div className="h-12 w-12 bg-gray-700 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-white text-base">{item.product_details?.name || `Product #${item.product}`}</div>
+                                    </div>
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">
                                   $
@@ -252,11 +269,7 @@ export default function OrderDetailPage() {
                                 <TableCell className="text-gray-300 text-base">{item.quantity}</TableCell>
                                 <TableCell className="text-right text-white font-semibold text-base">
                                   $
-                                  {typeof item.subtotal === "number"
-                                    ? item.subtotal.toFixed(2)
-                                    : item.subtotal
-                                      ? Number(item.subtotal).toFixed(2)
-                                      : "0.00"}
+                                  {formatCurrency(Number(item.price) * Number(item.quantity) || 0)}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -303,10 +316,10 @@ export default function OrderDetailPage() {
                         <span className="text-gray-300">Subtotal</span>
                         <span className="text-white font-semibold">
                           $
-                          {typeof order.total_amount === "number"
-                            ? order.total_amount.toFixed(2)
-                            : order.total_amount
-                              ? Number(order.total_amount).toFixed(2)
+                          {typeof order.total_price === "number"
+                            ? order.total_price.toFixed(2)
+                            : order.total_price
+                              ? Number(order.total_price).toFixed(2)
                               : "0.00"}
                         </span>
                       </div>
@@ -323,10 +336,10 @@ export default function OrderDetailPage() {
                         <span className="text-white">Total</span>
                         <span style={{ color: "#F3C998" }}>
                           $
-                          {typeof order.total_amount === "number"
-                            ? order.total_amount.toFixed(2)
-                            : order.total_amount
-                              ? Number(order.total_amount).toFixed(2)
+                          {typeof order.total_price === "number"
+                            ? order.total_price.toFixed(2)
+                            : order.total_price
+                              ? Number(order.total_price).toFixed(2)
                               : "0.00"}
                         </span>
                       </div>

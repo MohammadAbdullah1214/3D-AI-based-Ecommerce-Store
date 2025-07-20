@@ -1,22 +1,41 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGetAllUsersQuery, useGetUserStatsQuery } from "@/store/services/adminApi"
-import { useGetAllOrdersQuery } from "@/store/services/orderApi"
+import { useGetAllUsersQuery, useGetUserStatsQuery, useDeleteUserMutation } from "@/store/services/adminApi"
+import { useGetAllOrdersQuery, useDeleteOrderMutation } from "@/store/services/orderApi"
 import { useGetProductsQuery } from "@/store/services/productApi"
+import { useGetCategoriesQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation } from "@/store/services/productApi"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell, type PieLabelRenderProps } from "recharts"
-import { Users, ShoppingBag, Package, DollarSign, ArrowUpRight, ArrowDownRight, AlertTriangle } from "lucide-react"
+import {
+  Users,
+  ShoppingBag,
+  Package,
+  DollarSign,
+  ArrowUpRight,
+  ArrowDownRight,
+  AlertTriangle,
+  Plus,
+  Edit,
+  Trash2,
+  Tag,
+  Grid3X3,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
-import CategoryManagementSection from "./CategoryManagementSection"
+import { useGetDashboardStatsQuery } from "@/store/services/analyticsApi"
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryDescription, setNewCategoryDescription] = useState("")
+  const [editingCategory, setEditingCategory] = useState<any>(null)
   const { currentUser } = useAuth()
   const { data: userStats, isLoading: isLoadingUserStats } = useGetUserStatsQuery()
   const { data: users, isLoading: isLoadingUsers } = useGetAllUsersQuery()
@@ -27,6 +46,43 @@ export default function AdminDashboard() {
     refetch: refetchOrders,
   } = useGetAllOrdersQuery()
   const { data: products, isLoading: isLoadingProducts } = useGetProductsQuery(undefined, { skip: !currentUser?.id })
+  const { data: dashboardStats, isLoading: isLoadingDashboardStats } = useGetDashboardStatsQuery()
+
+  const [deleteUser] = useDeleteUserMutation()
+  const [deleteOrder] = useDeleteOrderMutation()
+
+  // Use real-time stats from backend
+  const totalUsers = dashboardStats?.total_users || 0
+  const totalOrders = dashboardStats?.total_orders || 0
+  const totalProducts = dashboardStats?.total_products || 0
+  const totalRevenue = dashboardStats?.total_revenue || 0
+  const usersChange = dashboardStats?.users_change || 0
+  const ordersChange = dashboardStats?.orders_change || 0
+  const productsChange = dashboardStats?.products_change || 0
+  const revenueChange = dashboardStats?.revenue_change || 0
+  const customersCount = dashboardStats?.customers_count || 0
+  const sellersCount = dashboardStats?.sellers_count || 0
+  const adminsCount = dashboardStats?.admins_count || 0
+
+  const userTypeData = [
+    { name: "Customers", value: customersCount },
+    { name: "Sellers", value: sellersCount },
+    { name: "Admins", value: adminsCount },
+  ]
+
+  const COLORS = ["#F3C998", "#F3C998AA", "#F3C99877"]
+
+  const recentUsers = users?.slice(0, 5) || []
+  const recentOrders = orders?.slice(0, 5) || []
+
+  const isLoading =
+    isLoadingUserStats || isLoadingUsers || isLoadingOrders || isLoadingProducts || isLoadingDashboardStats
+
+  // Use live categories from backend
+  const { data: categories = [], isLoading: isLoadingCategories, refetch: refetchCategories } = useGetCategoriesQuery()
+  const [createCategory] = useCreateCategoryMutation()
+  const [updateCategory] = useUpdateCategoryMutation()
+  const [deleteCategory] = useDeleteCategoryMutation()
 
   useEffect(() => {
     console.log("Admin orders data:", orders)
@@ -38,18 +94,57 @@ export default function AdminDashboard() {
     }
   }, [orders, ordersError])
 
-  const userTypeData = [
-    { name: "Customers", value: userStats?.customers_count || 0 },
-    { name: "Sellers", value: userStats?.sellers_count || 0 },
-    { name: "Admins", value: userStats?.admins_count || 0 },
-  ]
+  // Category management functions
+  // Update add/edit/delete handlers to use backend mutations
+  const handleAddCategory = async () => {
+    if (newCategoryName.trim()) {
+      await createCategory(
+        (() => {
+          const formData = new FormData()
+          formData.append('name', newCategoryName)
+          formData.append('description', newCategoryDescription)
+          return formData
+        })()
+      ).unwrap()
+      setNewCategoryName("")
+      setNewCategoryDescription("")
+      refetchCategories()
+    }
+  }
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category)
+    setNewCategoryName(category.name)
+    setNewCategoryDescription(category.description)
+  }
+  const handleUpdateCategory = async () => {
+    if (editingCategory && newCategoryName.trim()) {
+      await updateCategory({
+        id: editingCategory.id,
+        formData: (() => {
+          const formData = new FormData()
+          formData.append('name', newCategoryName)
+          formData.append('description', newCategoryDescription)
+          return formData
+        })()
+      }).unwrap()
+      setEditingCategory(null)
+      setNewCategoryName("")
+      setNewCategoryDescription("")
+      refetchCategories()
+    }
+  }
+  const handleDeleteCategory = async (categoryId: number) => {
+    if (window.confirm("Are you sure you want to delete this category? This action cannot be undone.")) {
+      await deleteCategory(categoryId).unwrap()
+      refetchCategories()
+    }
+  }
 
-  const COLORS = ["#F3C998", "#F3C998AA", "#F3C99877"]
-
-  const recentUsers = users?.slice(0, 5) || []
-  const recentOrders = orders?.slice(0, 5) || []
-
-  const isLoading = isLoadingUserStats || isLoadingUsers || isLoadingOrders || isLoadingProducts
+  const handleCancelEdit = () => {
+    setEditingCategory(null)
+    setNewCategoryName("")
+    setNewCategoryDescription("")
+  }
 
   if (isLoading) {
     return (
@@ -145,12 +240,11 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Users</p>
-                          <h3 className="text-3xl font-bold text-white">{userStats?.total_users || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">{totalUsers}</h3>
                         </div>
                       </div>
                       <div className="flex items-center space-x-1 text-emerald-400">
                         <ArrowUpRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">12%</span>
                       </div>
                     </div>
                   </CardContent>
@@ -168,12 +262,11 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Orders</p>
-                          <h3 className="text-3xl font-bold text-white">{orders?.length || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">{totalOrders}</h3>
                         </div>
                       </div>
                       <div className="flex items-center space-x-1 text-emerald-400">
                         <ArrowUpRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">8%</span>
                       </div>
                     </div>
                   </CardContent>
@@ -191,12 +284,11 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Products</p>
-                          <h3 className="text-3xl font-bold text-white">{products?.length || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">{totalProducts}</h3>
                         </div>
                       </div>
                       <div className="flex items-center space-x-1 text-emerald-400">
                         <ArrowUpRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">15%</span>
                       </div>
                     </div>
                   </CardContent>
@@ -214,12 +306,11 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Revenue</p>
-                          <h3 className="text-3xl font-bold text-white">$12,345</h3>
+                          <h3 className="text-3xl font-bold text-white">${totalRevenue.toFixed(2)}</h3>
                         </div>
                       </div>
                       <div className="flex items-center space-x-1 text-red-400">
                         <ArrowDownRight className="h-5 w-5" />
-                        <span className="text-sm font-medium">3%</span>
                       </div>
                     </div>
                   </CardContent>
@@ -325,9 +416,11 @@ export default function AdminDashboard() {
                             <TableRow className="border-white/20 hover:bg-white/5">
                               <TableHead className="text-gray-300 font-semibold text-base">Order ID</TableHead>
                               <TableHead className="text-gray-300 font-semibold text-base">Customer</TableHead>
+                              <TableHead className="text-gray-300 font-semibold text-base">Seller</TableHead>
                               <TableHead className="text-gray-300 font-semibold text-base">Date</TableHead>
                               <TableHead className="text-gray-300 font-semibold text-base">Status</TableHead>
                               <TableHead className="text-gray-300 font-semibold text-base text-right">Amount</TableHead>
+                              <TableHead className="text-gray-300 font-semibold text-base">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -337,7 +430,12 @@ export default function AdminDashboard() {
                                 className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                               >
                                 <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
-                                <TableCell className="text-gray-300 text-base">{order.customer_username}</TableCell>
+                                <TableCell className="text-gray-300 text-base">
+                                  {order.customer_full_name || order.customer_username || "Unknown"}
+                                </TableCell>
+                                <TableCell className="text-gray-300 text-base">
+                                  {order.seller_names || "Unknown"}
+                                </TableCell>
                                 <TableCell className="text-gray-300 text-base">
                                   {new Date(order.created_at).toLocaleDateString()}
                                 </TableCell>
@@ -360,9 +458,49 @@ export default function AdminDashboard() {
                                   $
                                   {typeof order.total_price === "number"
                                     ? order.total_price.toFixed(2)
-                                    : order.total_price
-                                      ? Number(order.total_price).toFixed(2)
+                                    : typeof order.total_price === "string"
+                                      ? Number.parseFloat(order.total_price).toFixed(2)
                                       : "0.00"}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-3">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      asChild
+                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                    >
+                                      <Link href={`/admin/orders/${order.id}`}>Details</Link>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        alert(`Update status for order #${order.id}`)
+                                      }}
+                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                                    >
+                                      Update
+                                    </Button>
+                                    {currentUser?.role === "admin" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                        onClick={() => {
+                                          if (
+                                            window.confirm(
+                                              "Are you sure you want to delete this order? This action cannot be undone.",
+                                            )
+                                          ) {
+                                            deleteOrder(order.id).unwrap().then(refetchOrders)
+                                          }
+                                        }}
+                                      >
+                                        Delete
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -370,8 +508,20 @@ export default function AdminDashboard() {
                         </Table>
                       </div>
                     ) : (
-                      <div className="text-center py-12">
-                        <p className="text-gray-400 text-lg">No recent orders found</p>
+                      <div className="text-center py-16">
+                        <p className="text-gray-400 mb-6 text-xl">No recent orders found</p>
+                        <p className="text-sm text-gray-500 mb-8">
+                          This could be because there are no orders in the system yet, or there might be an issue with
+                          the API connection.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          onClick={() => refetchOrders()}
+                          className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                        >
+                          Try Again
+                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -438,6 +588,18 @@ export default function AdminDashboard() {
                             <TableCell className="text-gray-300 text-base">
                               {user.last_login ? new Date(user.last_login).toLocaleDateString() : "Never"}
                             </TableCell>
+                            {currentUser?.role === "admin" && (
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => deleteUser(user.id)}
+                                  className="border-red-500/30 text-red-300 hover:bg-red-500/20 hover:border-red-500/50 transition-all duration-300 backdrop-blur-sm"
+                                >
+                                  Delete
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
@@ -483,7 +645,6 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                   )}
-
                   <div className="space-y-6">
                     <div className="flex flex-wrap gap-4 items-center justify-between">
                       <div className="flex flex-wrap gap-3">
@@ -519,7 +680,6 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </div>
-
                     {isLoadingOrders ? (
                       <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
@@ -546,10 +706,10 @@ export default function AdminDashboard() {
                               >
                                 <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                  {order.customer_username || "Customer"}
+                                  {order.customer_full_name || order.customer_username || "Customer"}
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                  {(order.items && order.items[0]?.product_details?.seller_username) || "Unknown"}
+                                  {order.seller_names || "Unknown"}
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">
                                   {new Date(order.created_at).toLocaleDateString()}
@@ -597,6 +757,24 @@ export default function AdminDashboard() {
                                     >
                                       Update
                                     </Button>
+                                    {currentUser?.role === "admin" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                        onClick={() => {
+                                          if (
+                                            window.confirm(
+                                              "Are you sure you want to delete this order? This action cannot be undone.",
+                                            )
+                                          ) {
+                                            deleteOrder(order.id).unwrap().then(refetchOrders)
+                                          }
+                                        }}
+                                      >
+                                        Delete
+                                      </Button>
+                                    )}
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -656,10 +834,10 @@ export default function AdminDashboard() {
                             <TableCell className="font-medium text-white text-base">#{product.id}</TableCell>
                             <TableCell className="text-white text-base">{product.name}</TableCell>
                             <TableCell className="text-gray-300 text-base">
-                              {product.seller_username || "Unknown"}
+                              {product.seller_name || product.seller_username || "Unknown"}
                             </TableCell>
                             <TableCell className="text-gray-300 text-base">
-                              {product.category_name || "Uncategorized"}
+                              {product.category_details?.name || "Unknown"}
                             </TableCell>
                             <TableCell>
                               <Badge
@@ -692,13 +870,216 @@ export default function AdminDashboard() {
             <TabsContent value="categories" className="space-y-8 mt-8">
               <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
                 <CardHeader className="pb-6">
-                  <CardTitle className="text-white text-2xl font-bold">Category Management</CardTitle>
-                  <CardDescription className="text-gray-300 text-lg">Create, edit, or delete categories</CardDescription>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="text-white text-2xl font-bold flex items-center gap-3">
+                        <div className="p-3 rounded-2xl shadow-lg" style={{ backgroundColor: "#F3C998" }}>
+                          <Grid3X3 className="h-6 w-6 text-[#1D212D]" />
+                        </div>
+                        Category Management
+                      </CardTitle>
+                      <CardDescription className="text-gray-300 text-lg mt-2">
+                        Create, edit, and manage product categories
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        className="px-4 py-2 text-sm border-white/20"
+                        style={{ backgroundColor: "rgba(243, 201, 152, 0.2)", color: "#F3C998" }}
+                      >
+                        <Tag className="h-4 w-4 mr-2" />
+                        {categories.length} Categories
+                      </Badge>
+                    </div>
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  {/* Category management UI goes here */}
-                  {/* Example: List categories, add/edit/delete forms/buttons */}
-                  <CategoryManagementSection />
+                <CardContent className="space-y-8">
+                  {/* Add/Edit Category Form */}
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6">
+                    <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Plus className="h-5 w-5" style={{ color: "#F3C998" }} />
+                      {editingCategory ? "Edit Category" : "Add New Category"}
+                    </h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="categoryName" className="text-white/90 font-medium">
+                          Category Name
+                        </Label>
+                        <Input
+                          id="categoryName"
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          placeholder="Enter category name"
+                          className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-white/20 transition-all text-white placeholder:text-white/60"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="categoryDescription" className="text-white/90 font-medium">
+                          Description
+                        </Label>
+                        <Input
+                          id="categoryDescription"
+                          value={newCategoryDescription}
+                          onChange={(e) => setNewCategoryDescription(e.target.value)}
+                          placeholder="Enter category description"
+                          className="bg-white/5 backdrop-blur-sm border-white/20 focus:border-white/40 focus:ring-2 focus:ring-white/20 transition-all text-white placeholder:text-white/60"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-6">
+                      <Button
+                        onClick={editingCategory ? handleUpdateCategory : handleAddCategory}
+                        disabled={!newCategoryName.trim()}
+                        className="shadow-lg transition-all duration-200 border border-white/20"
+                        style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
+                      >
+                        {editingCategory ? (
+                          <>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Update Category
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Category
+                          </>
+                        )}
+                      </Button>
+                      {editingCategory && (
+                        <Button
+                          onClick={handleCancelEdit}
+                          variant="outline"
+                          className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Categories List */}
+                  <div className="space-y-4">
+                    <h3 className="text-white text-lg font-semibold flex items-center gap-2">
+                      <Grid3X3 className="h-5 w-5" style={{ color: "#F3C998" }} />
+                      Existing Categories
+                    </h3>
+
+                    {isLoadingCategories ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
+                      </div>
+                    ) : categories.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-white/20 hover:bg-white/5">
+                              <TableHead className="text-gray-300 font-semibold text-base">ID</TableHead>
+                              <TableHead className="text-gray-300 font-semibold text-base">Name</TableHead>
+                              <TableHead className="text-gray-300 font-semibold text-base">Description</TableHead>
+                              <TableHead className="text-gray-300 font-semibold text-base">Products</TableHead>
+                              <TableHead className="text-gray-300 font-semibold text-base">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {categories.map((category) => (
+                              <TableRow
+                                key={category.id}
+                                className="border-white/10 hover:bg-white/5 transition-colors duration-300"
+                              >
+                                <TableCell className="font-medium text-white text-base">#{category.id}</TableCell>
+                                <TableCell className="text-white text-base font-medium">{category.name}</TableCell>
+                                <TableCell className="text-gray-300 text-base max-w-xs truncate">
+                                  {category.description || "No description"}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    className="px-3 py-1 border-white/20"
+                                    style={{ backgroundColor: "rgba(243, 201, 152, 0.2)", color: "#F3C998" }}
+                                  >
+                                    {category.product_count} products
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEditCategory(category)}
+                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" />
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeleteCategory(category.id)}
+                                      className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Delete
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-16 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg">
+                        <div
+                          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"
+                          style={{ backgroundColor: "rgba(243, 201, 152, 0.2)" }}
+                        >
+                          <Grid3X3 className="h-8 w-8" style={{ color: "#F3C998" }} />
+                        </div>
+                        <p className="text-gray-400 mb-4 text-xl">No categories found</p>
+                        <p className="text-sm text-gray-500 mb-6">
+                          Create your first category to organize products on the platform.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Category Statistics */}
+                  <div className="grid gap-6 md:grid-cols-3">
+                    <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-300 mb-1">Total Categories</p>
+                            <h3 className="text-2xl font-bold text-white">{categories.length}</h3>
+                          </div>
+                          <div
+                            className="p-3 rounded-xl shadow-lg"
+                            style={{ backgroundColor: "rgba(243, 201, 152, 0.2)" }}
+                          >
+                            <Grid3X3 className="h-6 w-6" style={{ color: "#F3C998" }} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-300 mb-1">Total Products</p>
+                            <h3 className="text-2xl font-bold text-white">
+                              {categories.reduce((sum, cat) => sum + (cat.product_count || 0), 0)}
+                            </h3>
+                          </div>
+                          <div
+                            className="p-3 rounded-xl shadow-lg"
+                            style={{ backgroundColor: "rgba(243, 201, 152, 0.2)" }}
+                          >
+                            <Package className="h-6 w-6" style={{ color: "#F3C998" }} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

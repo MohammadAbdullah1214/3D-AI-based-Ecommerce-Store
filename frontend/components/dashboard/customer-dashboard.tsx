@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ShoppingBag, Package, Clock, ArrowRight, User, MapPin, CreditCard } from "lucide-react"
+import { ShoppingBag, Package, Clock, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
@@ -89,12 +89,6 @@ export default function CustomerDashboard() {
                 className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg"
               >
                 My Orders
-              </TabsTrigger>
-              <TabsTrigger
-                value="profile"
-                className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg"
-              >
-                Profile
               </TabsTrigger>
             </TabsList>
 
@@ -345,96 +339,6 @@ export default function CustomerDashboard() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="profile" className="space-y-8 mt-8">
-              <div className="grid gap-8 md:grid-cols-2">
-                <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
-                  <CardHeader className="pb-6">
-                    <CardTitle className="text-white text-2xl font-bold">Personal Information</CardTitle>
-                    <CardDescription className="text-gray-300 text-lg">Your account details</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-8">
-                      <div className="flex items-center">
-                        <User className="h-6 w-6 text-[#F3C998] mr-4" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-400 mb-1">Username</p>
-                          <p className="text-white font-semibold text-lg">{user?.username}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <CreditCard className="h-6 w-6 text-[#F3C998] mr-4" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-400 mb-1">Email</p>
-                          <p className="text-white font-semibold text-lg">{user?.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <MapPin className="h-6 w-6 text-[#F3C998] mr-4" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-400 mb-1">Address</p>
-                          <p className="text-white font-semibold text-lg">
-                            {user?.profile?.address || "No address provided"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-10">
-                      <Link href="/account/profile/edit">
-                        <Button
-                          size="lg"
-                          className="w-full text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
-                          style={{ backgroundColor: "#F3C998" }}
-                        >
-                          Edit Profile
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
-                  <CardHeader className="pb-6">
-                    <CardTitle className="text-white text-2xl font-bold">Account Settings</CardTitle>
-                    <CardDescription className="text-gray-300 text-lg">Manage your account preferences</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-8">
-                      <div>
-                        <p className="text-sm font-medium text-gray-400 mb-2">Account Type</p>
-                        <p className="flex items-center">
-                          <Badge className="bg-[#F3C998]/20 text-[#F3C998] border-[#F3C998]/30 px-3 py-1 text-base">
-                            {user?.role}
-                          </Badge>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-400 mb-2">Member Since</p>
-                        <p className="text-white font-semibold text-lg">
-                          {user?.date_joined ? new Date(user.date_joined).toLocaleDateString() : "Unknown"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-10 space-y-4">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
-                      >
-                        Change Password
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
-                      >
-                        Notification Settings
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
             </TabsContent>
           </Tabs>
         </div>

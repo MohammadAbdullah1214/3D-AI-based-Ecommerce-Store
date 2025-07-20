@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ProductImageCarouselProps {
@@ -32,6 +32,12 @@ export function ProductImageCarousel({
   const [imageError, setImageError] = useState<Record<number, boolean>>({})
   const [imageLoaded, setImageLoaded] = useState<Record<number, boolean>>({})
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const imageContainerRef = useRef<HTMLDivElement>(null)
 
   // Filter out images that failed to load
   const validImages = initialValidImages.filter((_, index) => !imageError[index]);
@@ -101,6 +107,28 @@ export function ProductImageCarousel({
     return () => clearCarouselInterval()
   }, [clearCarouselInterval])
 
+  // Reset zoom/pan on image change or fullscreen toggle
+  useEffect(() => {
+    setZoom(1)
+    setOffset({ x: 0, y: 0 })
+  }, [currentIndex, fullscreen])
+
+  // Fullscreen styles
+  const fullscreenStyles = fullscreen
+    ? {
+        position: "fixed" as const,
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 9999,
+        background: "rgba(0,0,0,0.95)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }
+    : {}
+
   // FIXED: Better error handling
   const handleImageError = (index: number) => {
     setImageError((prev) => ({ ...prev, [index]: true }))
@@ -114,6 +142,25 @@ export function ProductImageCarousel({
   const handleImageLoad = (index: number) => {
     setImageLoaded((prev) => ({ ...prev, [index]: true }))
   }
+
+  // Zoom handlers
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    setZoom((z) => Math.max(1, Math.min(5, z - e.deltaY * 0.002)))
+  }
+  // Pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom === 1) return
+    setDragging(true)
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y })
+  }
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragging || zoom === 1) return
+    setOffset({ x: e.clientX - (dragStart?.x || 0), y: e.clientY - (dragStart?.y || 0) })
+  }
+  const handleMouseUp = () => setDragging(false)
+  // Touch handlers for mobile
+  // ... (optional, can add pinch/drag support)
 
   // If no valid images, show placeholder
   if (!validImages.length) {
@@ -142,12 +189,13 @@ export function ProductImageCarousel({
   return (
     <div
       className={`relative aspect-square overflow-hidden bg-gray-100 group ${className}`}
-      onMouseEnter={() => {
-        setIsHovered(true)
-      }}
-      onMouseLeave={() => {
-        setIsHovered(false)
-      }}
+      style={fullscreen ? fullscreenStyles : {}}
+      ref={imageContainerRef}
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
     >
       {/* FIXED: Better loading state - don't block image if not explicitly loading */}
       {!imageLoaded[currentIndex] && currentIndex < validImages.length && (
@@ -162,16 +210,29 @@ export function ProductImageCarousel({
           src={imageUrl}
           alt={`${productName} - Image ${currentIndex + 1}`}
           fill
-          className={`object-cover transition-all duration-500 ease-in-out ${
-            "opacity-100 scale-100"
-          }`}
+          className={`object-cover transition-all duration-500 ease-in-out ${fullscreen ? "cursor-move" : ""}`}
+          style={{
+            transform: `scale(${zoom}) translate(${offset.x / zoom}px, ${offset.y / zoom}px)`,
+            transition: dragging ? "none" : "transform 0.3s cubic-bezier(.4,2,.6,1)",
+            zIndex: 2,
+          }}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           onError={() => handleImageError(currentIndex)}
           onLoad={() => handleImageLoad(currentIndex)}
           priority={currentIndex === 0}
           unoptimized={imageUrl.startsWith('http')}
+          draggable={false}
         />
       </div>
+      {/* Fullscreen toggle button */}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="absolute top-2 right-2 z-30 bg-white/80 hover:bg-white"
+        onClick={() => setFullscreen((f) => !f)}
+      >
+        {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+      </Button>
 
       {/* Hover overlay for smooth transition effect */}
       {onHover && validImages.length > 1 && (

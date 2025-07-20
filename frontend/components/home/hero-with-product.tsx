@@ -7,6 +7,7 @@ import Link from "next/link"
 import { ArrowRight, Sparkles, Star } from "lucide-react"
 import Simple3DViewer from "@/components/product/simple-3d-viewer"
 import { getBackendMediaUrl } from "@/utils/product-utils"
+import { useGetProductQuery } from "@/store/services/productApi"
 
 export default function HeroWithProduct() {
   // Fetch products - no authentication required, no specific filters
@@ -35,6 +36,13 @@ export default function HeroWithProduct() {
     error,
     hasImageUrls: featuredProduct?.image_urls?.length,
   })
+
+  // Fetch full product details (including reviews) if not present
+  const { data: fullProduct } = useGetProductQuery(
+    typeof featuredProduct?.id === 'number' ? featuredProduct.id : 0,
+    { skip: typeof featuredProduct?.id !== 'number' }
+  )
+  const reviews = fullProduct?.reviews || featuredProduct?.reviews || []
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -109,6 +117,30 @@ export default function HeroWithProduct() {
                 </div>
               </div>
             )}
+            {/* Place the reviews block inside a <div> after the average rating display, before the closing parent div. */}
+            <div>
+              {/* Live reviews block */}
+              {reviews.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  {reviews.slice(0, 3).map((review) => (
+                    <div key={review.id} className="mb-4 text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-[#F3C998]">{review.user || 'User'}</span>
+                        <span className="text-xs text-gray-400">{new Date(review.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center mb-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} className={i < review.rating ? 'text-[#F3C998]' : 'text-white/30'}>★</span>
+                        ))}
+                      </div>
+                      <div className="text-gray-200 text-sm">{review.comment}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 text-gray-400">No reviews yet.</div>
+              )}
+            </div>
           </div>
 
           {/* Enhanced Glass Container for Product Display */}
@@ -130,19 +162,13 @@ export default function HeroWithProduct() {
                       modelUrl={getBackendMediaUrl(modelMedia.url)}
                       productName={featuredProduct?.name || "Product"}
                       isDefault={false}
-                      width={undefined}
-                      height={undefined}
-                      style={{ width: '100%', height: '100%' }}
                     />
                   ) : (
                     // Fallback to default 3D model
                     <Simple3DViewer
-                      modelUrl={getBackendMediaUrl("/assets/3d/shirt.glb")}
+                      modelUrl={getBackendMediaUrl("/assets/3d/realistic_yellow_polo_shirt.glb")}
                       productName={featuredProduct?.name || "Default Model"}
                       isDefault={true}
-                      width={undefined}
-                      height={undefined}
-                      style={{ width: '100%', height: '100%' }}
                     />
                   )}
                 </div>
