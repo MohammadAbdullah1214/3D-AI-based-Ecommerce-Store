@@ -7,10 +7,10 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 
-# Create cache directory
+# Create cache dir for numba
 mkdir -p /tmp/numba_cache
 
-# Run Django migrations
+# Apply migrations
 echo "Running Django migrations..."
 python manage.py migrate --noinput
 
@@ -18,12 +18,15 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Start Gunicorn with memory-efficient settings
-echo "Starting Gunicorn..."
+# Use PORT provided by Render or default to 8000 for local
+PORT=${PORT:-8000}
+
+# Start Gunicorn
+echo "Starting Gunicorn on port $PORT..."
 exec gunicorn core.wsgi:application \
-    --bind 0.0.0.0:${PORT:-8000} \
-    --workers 1 \
-    --timeout 120 \
-    --max-requests 1000 \
-    --max-requests-jitter 100 \
-    --preload
+  --bind 0.0.0.0:$PORT \
+  --workers 1 \
+  --timeout 120 \
+  --max-requests 1000 \
+  --max-requests-jitter 100 \
+  --preload

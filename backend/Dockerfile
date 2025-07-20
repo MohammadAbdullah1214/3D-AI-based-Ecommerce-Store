@@ -1,4 +1,4 @@
-# Dockerfile.django
+# Dockerfile
 
 FROM python:3.11-slim
 
@@ -21,16 +21,16 @@ COPY requirements.txt .
 
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy project files into the container
+# Copy the whole project
 COPY . .
 
 # Make startup script executable
 RUN chmod +x start.sh
 
-# Expose Django default port
+# Expose port (Render ignores this but good practice)
 EXPOSE 8000
 
-# Set environment variables to reduce memory usage
+# Set env vars
 ENV PYTHONUNBUFFERED=1
 ENV NUMBA_CACHE_DIR=/tmp/numba_cache
 ENV OMP_NUM_THREADS=1

@@ -1,4 +1,4 @@
-# Merged E-Commerce Platform
+# E-Commerce Platform
 
 A comprehensive e-commerce platform that combines advanced AI chatbot functionality with 3D product visualization capabilities.
 
