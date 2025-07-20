@@ -344,11 +344,6 @@ export default function CustomerDashboard() {
                                         </Link>
                                       </Button>
                                     )}
-                                    {/* Debug info */}
-                                    <span className="text-xs text-gray-500 ml-2">
-                                      Status: {order.status} | Items: {order.items?.length || 0}
-                                    </span>
-
                                   </div>
                                 </TableCell>
                               </TableRow>

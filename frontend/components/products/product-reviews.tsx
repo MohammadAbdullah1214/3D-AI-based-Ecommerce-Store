@@ -62,9 +62,18 @@ export default function ProductReviews({ reviews, productId }: ProductReviewsPro
 
     setIsSubmitting(true)
 
+    // Debug: Log the product ID being used
+    console.log('Submitting review for product ID:', productId)
+    console.log('Review data:', newReview)
+    console.log('Is authenticated:', isAuthenticated)
+    console.log('Access token exists:', !!accessToken)
+
     try {
+      const requestUrl = `/api/products/${productId}/add-review/`
+      console.log('Request URL:', requestUrl)
+      
       // Submit to Django API endpoint
-      const response = await fetch(`/api/products/${productId}/add-review/`, {
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -73,9 +82,18 @@ export default function ProductReviews({ reviews, productId }: ProductReviewsPro
         body: JSON.stringify(newReview)
       });
 
+      console.log('Response status:', response.status)
+      console.log('Response URL:', response.url)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
-        throw new Error('Failed to submit review');
+        const errorText = await response.text()
+        console.log('Error response body:', errorText)
+        throw new Error(`Failed to submit review: ${response.status} ${response.statusText}`)
       }
+
+      const responseData = await response.json()
+      console.log('Success response:', responseData)
 
       toast({
         title: "Review submitted",
@@ -88,6 +106,7 @@ export default function ProductReviews({ reviews, productId }: ProductReviewsPro
 
       // In a real app, you would refresh the reviews
     } catch (error) {
+      console.error('Review submission error:', error)
       toast({
         title: "Error submitting review",
         description: "Please try again later.",

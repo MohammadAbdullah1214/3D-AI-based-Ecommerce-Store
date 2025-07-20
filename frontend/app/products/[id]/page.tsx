@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Star,
   Minus,
@@ -36,7 +37,7 @@ import { getProductPrice, getProductStock, getBackendMediaUrl, getMediaUrl } fro
 import { useSelector } from 'react-redux'
 import { useRouter } from 'next/navigation'
 import { useAddItemMutation, useCheckProductQuery, useRemoveItemMutation } from '@/store/services/wishlistApi'
-import { useGetProductReviewsQuery, useAddProductReviewMutation } from '@/store/services/reviewApi'
+import { useAddProductReviewMutation } from '@/store/services/reviewApi'
 import Link from "next/link"
 
 export default function ProductDetailPage() {
@@ -99,8 +100,11 @@ export default function ProductDetailPage() {
   const isOutOfStock = product ? getProductStock(product) <= 0 : true
 
   // Get reviews for this product
-  const { data: reviews = [] } = useGetProductReviewsQuery(Number(productId))
+  // const { data: reviews = [] } = useGetProductReviewsQuery(Number(productId))
   const [addReview] = useAddProductReviewMutation()
+
+  // Use reviews from product data instead of separate query
+  const reviews = product?.reviews || []
 
   const handleAddToCart = async () => {
     console.log('Add to Cart Clicked:', { isAuthenticated, user });
@@ -779,7 +783,7 @@ export default function ProductDetailPage() {
                                     />
                                   ))}
                                 </div>
-                                <span className="font-medium text-white">{review.user_username || "User"}</span>
+                                <span className="font-medium text-white">{review.user_name || "User"}</span>
                                 <span className="text-xs text-gray-500">{new Date(review.created_at).toLocaleDateString()}</span>
                               </div>
                               <div className="text-gray-300 text-base">{review.comment}</div>

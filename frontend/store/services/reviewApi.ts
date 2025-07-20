@@ -35,7 +35,7 @@ export const reviewApi = api.injectEndpoints({
     // Add a review for a product
     addProductReview: builder.mutation<ReviewResponse, ReviewRequest>({
       query: (reviewData) => ({
-        url: `products/${reviewData.product_id}/reviews/`,
+        url: `products/${reviewData.product_id}/add-review/`,
         method: "POST",
         body: {
           rating: reviewData.rating,

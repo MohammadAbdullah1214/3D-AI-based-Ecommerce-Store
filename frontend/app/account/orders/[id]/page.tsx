@@ -372,10 +372,10 @@ export default function OrderDetailPage() {
                         <span className="text-gray-300">Subtotal</span>
                         <span className="text-white font-semibold">
                           $
-                          {typeof order.total_amount === "number"
-                            ? order.total_amount.toFixed(2)
-                            : order.total_amount
-                              ? Number(order.total_amount).toFixed(2)
+                          {typeof order.total_price === "number"
+                            ? order.total_price.toFixed(2)
+                            : order.total_price
+                              ? Number(order.total_price).toFixed(2)
                               : "0.00"}
                         </span>
                       </div>
@@ -392,10 +392,10 @@ export default function OrderDetailPage() {
                         <span className="text-white">Total</span>
                         <span style={{ color: "#F3C998" }}>
                           $
-                          {typeof order.total_amount === "number"
-                            ? order.total_amount.toFixed(2)
-                            : order.total_amount
-                              ? Number(order.total_amount).toFixed(2)
+                          {typeof order.total_price === "number"
+                            ? order.total_price.toFixed(2)
+                            : order.total_price
+                              ? Number(order.total_price).toFixed(2)
                               : "0.00"}
                         </span>
                       </div>
@@ -447,7 +447,7 @@ export default function OrderDetailPage() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-md w-full">
               <CardHeader>
-                <CardTitle className="text-white text-xl">Write a Review</CardTitle>
+                <CardTitle className="text-white text-xl">Write A Review</CardTitle>
                 <CardDescription className="text-gray-300">
                   Share your experience with this product
                 </CardDescription>
