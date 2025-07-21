@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'payments',
     'qna',
     'chatbot',
+    'storages',  # Added for django-storages
 ]
 
 # Middleware
@@ -108,8 +109,19 @@ USE_TZ = True
 
 # Static & media
 STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+
+# Supabase S3-compatible media storage
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+AWS_ACCESS_KEY_ID = env('SUPABASE_ACCESS_KEY')
+AWS_SECRET_ACCESS_KEY = env('SUPABASE_SECRET_KEY')
+AWS_STORAGE_BUCKET_NAME = env('SUPABASE_BUCKET', default='store-media')
+AWS_S3_REGION_NAME = 'ap-south-1'
+AWS_S3_ENDPOINT_URL = f'https://{env("SUPABASE_PROJECT_REF")}.supabase.co/storage/v1/s3'
+AWS_S3_ADDRESSING_STYLE = "path"
+AWS_DEFAULT_ACL = None
+
+MEDIA_URL = f'https://{env("SUPABASE_PROJECT_REF")}.supabase.co/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}/'
+MEDIA_ROOT = None  # Not used with S3 storage
 
 # User model
 AUTH_USER_MODEL = 'users.CustomUser'

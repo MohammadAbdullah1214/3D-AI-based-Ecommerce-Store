@@ -44,13 +44,16 @@ cd 3D-AI-based-Ecommerce-Store
 create a file in backend/ named .env and add this
 
 ```bash
-create a file in backend/ named .env and add this
 DJANGO_SECRET_KEY=a9ogFLVgYPEHU-7yxnLbA07lJn1w613I7NxtTNwKq9J-SKof2Xot48NwQ5YFy2gQ850
 DEBUG=False
 DATABASE_URL=postgresql://postgres.gmxrvtrwjjiyvrqhwwmt:3dteam%40db123@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
 ALLOWED_HOSTS=127.0.0.1,localhost,.vercel.app,.onrender.com
 CELERY_BROKER_URL=rediss://default:Ab2XAAIjcDE1MzQ0Y2ZmOTM0MDg0ZTEyYTdhMjJmN2Y4YzRlNDQ4YXAxMA@special-leech-48535.upstash.io:6379
 CELERY_RESULT_BACKEND=rediss://default:Ab2XAAIjcDE1MzQ0Y2ZmOTM0MDg0ZTEyYTdhMjJmN2Y4YzRlNDQ4YXAxMA@special-leech-48535.upstash.io:6379
+SUPABASE_ACCESS_KEY=5d8689ca8f3c8604da224e762618e1a9
+SUPABASE_SECRET_KEY=2389b2ebe67a1006e5fcc0f0b085daaeedd52d88d9590e1589df18ce294248e7
+SUPABASE_PROJECT_REF=gmxrvtrwjjiyvrqhwwmt
+SUPABASE_BUCKET=store-media
 ```
 
 create a file in frontend/ named .env.local
