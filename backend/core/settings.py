@@ -4,34 +4,38 @@ from datetime import timedelta
 import environ
 import ssl
 
+# Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Try to load .env and print a warning if not found
+
+# Load environment variables
 ENV_PATH = os.path.join(BASE_DIR, '.env')
-if not os.path.exists(ENV_PATH):
-    print(f"WARNING: .env file not found at {ENV_PATH}. Environment variables may be missing.")
-
 env = environ.Env()
-env.read_env(ENV_PATH)
 
+if os.path.exists(ENV_PATH):
+    env.read_env(ENV_PATH)
+    print(f".env file loaded from {ENV_PATH}")
+else:
+    print(f"WARNING: .env file not found at {ENV_PATH}. Using system environment variables.")
+
+# Core settings
 SECRET_KEY = env('DJANGO_SECRET_KEY', default='changeme-in-prod')
-DEBUG = env.bool('DEBUG', default=True)
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+DEBUG = env.bool('DEBUG', default=False)  # ✅ Always default False for production
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])  # ✅ Safe fallback for dev
 
+# Installed apps
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
-    'corsheaders',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
-    # Third-party apps
+    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
     'celery',
-    # Local apps
     'core.apps.CoreConfig',
     'users',
     'products',
@@ -45,6 +49,7 @@ INSTALLED_APPS = [
     'chatbot',
 ]
 
+# Middleware
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -57,8 +62,11 @@ MIDDLEWARE = [
     'middleware.RoleMiddleware',
 ]
 
+# URL & WSGI
 ROOT_URLCONF = 'core.urls'
+WSGI_APPLICATION = 'core.wsgi.application'
 
+# Templates
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -75,20 +83,16 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'core.wsgi.application'
-
-# --- DATABASES ---
-# Use DATABASE_URL from .env (Supabase style)
+# Database — must set DATABASE_URL in Render
 try:
     DATABASES = {
         'default': env.db(),
     }
 except Exception as e:
-    print("\nERROR: Could not configure database from DATABASE_URL.\n" \
-          "Check your .env file for DATABASE_URL.\n" \
-          f"Details: {e}\n")
+    print(f"ERROR: Could not configure database. Ensure DATABASE_URL is set. Details: {e}")
     raise
 
+# Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -96,21 +100,28 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# Language and time
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
+
+# Static & media
+STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# User model
+AUTH_USER_MODEL = 'users.CustomUser'
+
+# Default primary key
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-AUTH_USER_MODEL = 'users.CustomUser'
-
+# REST framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -124,14 +135,14 @@ REST_FRAMEWORK = {
     ],
 }
 
+# JWT settings
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
-# Initialize empty ENUM_NAME_OVERRIDES - will be populated by CoreConfig.ready()
+# API schema / Spectacular
 ENUM_NAME_OVERRIDES = {}
-
 SPECTACULAR_SETTINGS = {
     'TITLE': 'E-Commerce API',
     'DESCRIPTION': 'API for E-Commerce platform',
@@ -163,8 +174,7 @@ SPECTACULAR_SETTINGS = {
 
 SITE_ID = 1
 
-# Celery Configuration - Windows optimized
-# Celery/Redis settings (Upstash)
+# Celery — works on Render with env vars
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
@@ -172,29 +182,14 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
-# Upstash/Redis SSL config
 CELERY_BROKER_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
 CELERY_REDIS_BACKEND_USE_SSL = {'ssl_cert_reqs': ssl.CERT_NONE}
 
-# Windows-specific Celery settings
-if os.name == 'nt':  # Windows
+if os.name == 'nt':  # Windows dev only
     CELERY_WORKER_POOL = 'solo'
     CELERY_WORKER_CONCURRENCY = 1
 
-# Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For testing - prints to console
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For real email sending
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='awami.mail69@gmail.com')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='iobmstudentS1234?')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='awami.mail69@gmail.com')
-
-# For development/testing, you can use console backend:
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# 3D Generation Settings
+# 3D generation
 BLENDER_EXECUTABLE_PATH = r"C:/Users/Abdul Rehman/Downloads/blender-4.0.2-windows-x64/blender.exe"
 MAX_GENERATION_QUEUE_SIZE = env('MAX_GENERATION_QUEUE_SIZE', default=10)
 GENERATION_TIMEOUT_MINUTES = env('GENERATION_TIMEOUT_MINUTES', default=30)

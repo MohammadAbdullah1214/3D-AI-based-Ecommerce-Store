@@ -1,16 +1,22 @@
 #!/bin/bash
 
-# Set environment variables to reduce memory usage
+# Make sure script uses bash
+set -e
+
+# Set environment variables for performance
 export PYTHONUNBUFFERED=1
 export NUMBA_CACHE_DIR=/tmp/numba_cache
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 
-# Create cache dir for numba
+# Debug: show PORT
+echo "PORT is ${PORT}"
+
+# Create numba cache dir
 mkdir -p /tmp/numba_cache
 
-# Apply migrations
+# Run Django migrations
 echo "Running Django migrations..."
 python manage.py migrate --noinput
 
@@ -18,11 +24,11 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Use PORT provided by Render or default to 8000 for local
+# Use PORT from Render or fallback for local
 PORT=${PORT:-8000}
 
 # Start Gunicorn
-echo "Starting Gunicorn on port $PORT..."
+echo "Starting Gunicorn on 0.0.0.0:${PORT}..."
 exec gunicorn core.wsgi:application \
   --bind 0.0.0.0:$PORT \
   --workers 1 \
