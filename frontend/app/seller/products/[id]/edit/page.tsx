@@ -22,11 +22,12 @@ import {
   useGetGenerationStatusQuery,
 } from "@/store/services/productApi"
 import { useGetProductMediaQuery } from "@/store/services/mediaApi"
+import { useGetProductReviewsQuery } from "@/store/services/reviewApi"
 import { MediaUpload } from "@/components/product/media-upload"
 import { ThreeDGenerationPanel } from "@/components/product/3d-generation-panel"
 import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
-import { ArrowLeft, Loader2, CuboidIcon, Play } from "lucide-react"
+import { ArrowLeft, Loader2, CuboidIcon, Play, Star } from "lucide-react"
 import Link from "next/link"
 import { getProductStock } from "@/utils/product-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -95,6 +96,11 @@ export default function EditProductPage() {
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation()
   const [uploadProductFiles, { isLoading: isUploading }] = useUploadProductFilesMutation()
   const { data: productMedia = [], isLoading: isLoadingMedia } = useGetProductMediaQuery(productId, {
+    skip: !productId,
+  })
+
+  // Reviews
+  const { data: reviews = [] } = useGetProductReviewsQuery(productId, {
     skip: !productId,
   })
 
@@ -507,6 +513,49 @@ export default function EditProductPage() {
                               />
                             </TabsContent>
                           </Tabs>
+                        </CardContent>
+                      </Card>
+
+                      {/* Customer Reviews */}
+                      <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+                        <CardHeader>
+                          <CardTitle className="text-white text-xl">Customer Reviews</CardTitle>
+                          <CardDescription className="text-gray-300">
+                            See what customers are saying about your product
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {reviews.length > 0 ? (
+                            <div className="space-y-4">
+                              {reviews.map((review) => (
+                                <div key={review.id} className="border-b border-white/10 pb-4 last:border-0">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="flex items-center">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <Star
+                                          key={star}
+                                          className={`h-4 w-4 ${
+                                            star <= (review.rating || 0)
+                                              ? "text-yellow-400 fill-yellow-400"
+                                              : "text-gray-500"
+                                          }`}
+                                        />
+                                      ))}
+                                    </div>
+                                    <span className="font-medium text-white">{review.user_username || "User"}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(review.created_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <div className="text-gray-300 text-sm">{review.comment}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <p className="text-gray-400 text-lg">No reviews yet for this product.</p>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </motion.div>

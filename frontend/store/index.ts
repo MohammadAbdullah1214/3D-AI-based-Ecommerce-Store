@@ -8,6 +8,7 @@ import cartReducer from "./slices/cartSlice"
 import uiReducer from "./slices/uiSlice"
 import { chatbotApi } from './services/chatbotApi';
 import { wishlistApi } from "./services/wishlistApi";
+import { reviewApi } from "./services/reviewApi";
 
 
 export const store = configureStore({
@@ -16,6 +17,7 @@ export const store = configureStore({
     [adminApi.reducerPath]: adminApi.reducer,
     [chatbotApi.reducerPath]: chatbotApi.reducer,
     [wishlistApi.reducerPath]: wishlistApi.reducer,
+    [reviewApi.reducerPath]: reviewApi.reducer,
     auth: authReducer,
     cart: cartReducer,
     ui: uiReducer,

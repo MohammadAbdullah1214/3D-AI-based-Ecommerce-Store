@@ -13,7 +13,7 @@ export interface UserStats {
 export const adminApi = createApi({
   reducerPath: "adminApi", // Make sure this is unique
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://127.0.0.1:8000/api/",
+    baseUrl: process.env.NEXT_PUBLIC_API_URL + "/api/",
     prepareHeaders: (headers, { getState }) => {
       // Get the token from the auth state
       const token = (getState() as RootState).auth.accessToken

@@ -2,6 +2,7 @@
 
 import HeroWithProduct from "@/components/home/hero-with-product"
 import FeaturedProductsWith3D from "@/components/home/featured-products-with-3d"
+import CustomerReviews from "@/components/home/customer-reviews"
 import HeaderWrapper from "@/app/header-wrapper"
 import Link from "next/link"
 import Image from "next/image"
@@ -124,6 +125,9 @@ export default function HomePage() {
                 </div>
               </div>
             </section>
+
+            {/* Customer Reviews Section */}
+            <CustomerReviews />
 
             {/* CTA Section - With glass effect */}
             <section className="py-24 relative overflow-hidden">

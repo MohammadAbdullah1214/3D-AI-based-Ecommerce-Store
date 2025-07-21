@@ -1,4 +1,4 @@
-# Merged E-Commerce Platform
+# E-Commerce Platform
 
 A comprehensive e-commerce platform that combines advanced AI chatbot functionality with 3D product visualization capabilities.
 
@@ -28,17 +28,16 @@ A comprehensive e-commerce platform that combines advanced AI chatbot functional
 ## 🏗️ Architecture
 
 ```
-merged_project/
-├── merged_backend/          # Django REST API
-│   ├── backend/            # Django project
+3D-AI-based-Ecommerce-Store/
+├── backend/                # Django REST API
 │   ├── requirements.txt    # Python dependencies
-│   └── README.md          # Backend documentation
-├── merged_frontend/        # Next.js frontend
-│   ├── app/               # Next.js app directory
-│   ├── components/        # React components
-│   ├── package.json       # Node.js dependencies
-│   └── README.md          # Frontend documentation
-└── README.md              # This file
+│   └── README.md           # Backend documentation
+├── frontend/               # Next.js frontend
+│   ├── app/                # Next.js app directory
+│   ├── components/         # React components
+│   ├── package.json        # Node.js dependencies
+│   └── README.md           # Frontend documentation
+└── README.md               # This file
 ```
 
 ## 🛠️ Technology Stack
@@ -66,57 +65,35 @@ merged_project/
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL
-- Redis
 - Blender (for 3D generation)
 
 ### Quick Start
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd merged_project
+   git clone https://github.com/MohammadAbdullah1214/3D-AI-based-Ecommerce-Store.git
+   cd 3D-AI-based-Ecommerce-Store
    ```
 
 2. **Backend Setup:**
    ```bash
-   cd merged_backend
-   python -m venv venv
-   linux: source venv/bin/activate  
-   Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   
-   # Set up environment variables
-   cp .env.example .env
-   # Edit .env with your database and API keys
-   
-   cd backend
-   python manage.py migrate
-   python manage.py createsuperuser
-   python manage.py runserver
+   Visit backend/README to setup the Django Backend
    ```
 
 3. **Frontend Setup:**
    ```bash
-   cd merged_frontend
-   npm install
-   
-   # Set up environment variables
-   cp .env.example .env.local
-   # Edit .env.local with your API URLs
-   
-   npm run dev
+   Visit frontend/README and  to setup the React Frontend
    ```
 
 4. **Start Services:**
    ```bash
    # Terminal 1: Backend
-   cd backend/backend
+   cd backend
    venv/Scripts/activate
    python manage.py runserver
    
    # Terminal 2: Celery Worker
-   cd backend/backend
+   cd backend
    venv/Scripts/activate
    celery -A core worker --loglevel=info
    
@@ -147,7 +124,7 @@ merged_project/
 
 ### Backend Development
 ```bash
-cd merged_backend/backend
+cd backend
 python manage.py makemigrations
 python manage.py migrate
 python manage.py test
@@ -155,7 +132,7 @@ python manage.py test
 
 ### Frontend Development
 ```bash
-cd merged_frontend
+cd frontend
 npm run lint
 npm test
 npm run build
@@ -179,7 +156,7 @@ npm run build
 
 ### Backend Tests
 ```bash
-cd merged_backend/backend
+cd backend
 python manage.py test chatbot
 python manage.py test ai_3d_generation
 python manage.py test products
@@ -187,7 +164,7 @@ python manage.py test products
 
 ### Frontend Tests
 ```bash
-cd merged_frontend
+cd frontend
 npm test
 npm run test:coverage
 ```

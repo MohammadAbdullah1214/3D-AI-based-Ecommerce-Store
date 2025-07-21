@@ -3,13 +3,15 @@
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useGetOrderQuery, useCancelOrderMutation } from "@/store/services/orderApi"
+import { useAddProductReviewMutation } from "@/store/services/reviewApi"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Package, Truck, AlertTriangle, Loader2 } from "lucide-react"
+import { ArrowLeft, Package, Truck, AlertTriangle, Loader2, Star, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
@@ -20,10 +22,13 @@ export default function OrderDetailPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isCancelling, setIsCancelling] = useState(false)
+  const [reviewingProduct, setReviewingProduct] = useState<number | null>(null)
+  const [reviewForm, setReviewForm] = useState({ rating: 0, comment: "" })
 
   const orderId = typeof params?.id === "string" ? Number.parseInt(params.id) : 0
   const { data: order, isLoading, error } = useGetOrderQuery(orderId)
   const [cancelOrder] = useCancelOrderMutation()
+  const [addReview] = useAddProductReviewMutation()
 
   const handleCancelOrder = async () => {
     if (!order) return
@@ -47,6 +52,57 @@ export default function OrderDetailPage() {
         setIsCancelling(false)
       }
     }
+  }
+
+  const handleReviewSubmit = async (productId: number) => {
+    if (reviewForm.rating === 0) {
+      toast({
+        title: "Rating required",
+        description: "Please select a rating before submitting.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!reviewForm.comment.trim()) {
+      toast({
+        title: "Comment required",
+        description: "Please write a comment before submitting.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await addReview({
+        product_id: productId,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+      }).unwrap()
+
+      toast({
+        title: "Review submitted",
+        description: "Thank you for your feedback!",
+      })
+
+      setReviewForm({ rating: 0, comment: "" })
+      setReviewingProduct(null)
+    } catch (error) {
+      console.error("Error submitting review:", error)
+      toast({
+        title: "Error",
+        description: "There was a problem submitting your review. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRatingChange = (rating: number) => {
+    setReviewForm((prev) => ({ ...prev, rating }))
+  }
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setReviewForm((prev) => ({ ...prev, comment: e.target.value }))
   }
 
   const getOrderSteps = (status: string) => {
@@ -239,23 +295,20 @@ export default function OrderDetailPage() {
                                 key={item.id}
                                 className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                               >
-                                <TableCell>
-                                  <div className="flex items-center space-x-2">
-                                    <div className="h-12 w-12 flex-shrink-0">
-                                      {item.product_details?.image_urls?.[0] ? (
-                                        <img
-                                          src={item.product_details.image_urls[0]}
-                                          alt={item.product_details.name}
-                                          className="h-12 w-12 object-cover rounded border border-gray-700 bg-gray-800"
-                                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/placeholder-logo.png'; }}
-                                        />
-                                      ) : (
-                                        <div className="h-12 w-12 bg-gray-700 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <div className="font-medium text-white text-base">{item.product_details?.name || `Product #${item.product}`}</div>
-                                    </div>
+                                <TableCell className="font-medium text-white text-base">
+                                  <div className="flex flex-col">
+                                    <span>{item.product_details?.name || `Product #${item.product}`}</span>
+                                    {order.status === "delivered" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-2 w-fit border-[#F3C998]/30 text-[#F3C998] hover:bg-[#F3C998]/10 hover:border-[#F3C998]/50 transition-all duration-300 backdrop-blur-sm"
+                                        onClick={() => setReviewingProduct(item.product)}
+                                      >
+                                        <MessageSquare className="mr-2 h-4 w-4" />
+                                        Write Review
+                                      </Button>
+                                    )}
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">
@@ -385,6 +438,73 @@ export default function OrderDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Review Modal */}
+        {reviewingProduct && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-md w-full">
+              <CardHeader>
+                <CardTitle className="text-white text-xl">Write A Review</CardTitle>
+                <CardDescription className="text-gray-300">
+                  Share your experience with this product
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Your Rating</label>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleRatingChange(i + 1)}
+                        className="focus:outline-none"
+                      >
+                        <Star
+                          className={`h-6 w-6 ${
+                            i < reviewForm.rating
+                              ? "text-[#F3C998] fill-[#F3C998]"
+                              : "text-gray-400 hover:text-[#F3C998]"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Your Review</label>
+                  <Textarea
+                    placeholder="Share your thoughts about this product..."
+                    value={reviewForm.comment}
+                    onChange={handleCommentChange}
+                    rows={4}
+                    className="bg-white/5 border-white/20 text-white placeholder-gray-400"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setReviewingProduct(null)
+                    setReviewForm({ rating: 0, comment: "" })
+                  }}
+                  className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleReviewSubmit(reviewingProduct)}
+                  className="bg-[#F3C998] text-[#1D212D] hover:bg-[#F3C998]/90 transition-all duration-300"
+                >
+                  Submit Review
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        )}
+
         <Footer />
       </HeaderWrapper>
     </div>

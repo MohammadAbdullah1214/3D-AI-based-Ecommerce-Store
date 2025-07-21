@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
 import { Star } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { useSelector } from 'react-redux'
+import type { RootState } from '@/store'
 
 interface Review {
   id: string
@@ -24,7 +26,7 @@ interface ProductReviewsProps {
 }
 
 export default function ProductReviews({ reviews, productId }: ProductReviewsProps) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false) // This would be determined by your auth state
+  const { isAuthenticated, accessToken } = useSelector((state: RootState) => state.auth)
   const [newReview, setNewReview] = useState({ rating: 0, comment: "" })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
@@ -60,38 +62,58 @@ export default function ProductReviews({ reviews, productId }: ProductReviewsPro
 
     setIsSubmitting(true)
 
-    try {
-      // In a real app, you would submit to your API
-      // const response = await fetch(`/api/products/${productId}/add-review/`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify(newReview)
-      // });
+    // Debug: Log the product ID being used
+    console.log('Submitting review for product ID:', productId)
+    console.log('Review data:', newReview)
+    console.log('Is authenticated:', isAuthenticated)
+    console.log('Access token exists:', !!accessToken)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const requestUrl = `/api/products/${productId}/add-review/`
+      console.log('Request URL:', requestUrl)
+      
+      // Submit to Django API endpoint
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
+        },
+        body: JSON.stringify(newReview)
+      });
+
+      console.log('Response status:', response.status)
+      console.log('Response URL:', response.url)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.log('Error response body:', errorText)
+        throw new Error(`Failed to submit review: ${response.status} ${response.statusText}`)
+      }
+
+      const responseData = await response.json()
+      console.log('Success response:', responseData)
 
       toast({
         title: "Review submitted",
         description: "Thank you for your feedback!",
         variant: "default",
-      })
+      });
 
       // Reset form
-      setNewReview({ rating: 0, comment: "" })
+      setNewReview({ rating: 0, comment: "" });
 
       // In a real app, you would refresh the reviews
     } catch (error) {
+      console.error('Review submission error:', error)
       toast({
         title: "Error submitting review",
         description: "Please try again later.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -129,7 +151,7 @@ export default function ProductReviews({ reviews, productId }: ProductReviewsPro
         </div>
       )}
 
-      {isLoggedIn ? (
+      {isAuthenticated ? (
         <form onSubmit={handleSubmitReview} className="space-y-4">
           <h3 className="text-lg font-medium">Write a Review</h3>
 
@@ -164,7 +186,9 @@ export default function ProductReviews({ reviews, productId }: ProductReviewsPro
       ) : (
         <div className="text-center py-4 border border-gray-200 dark:border-gray-800 rounded-md">
           <p className="text-gray-500 dark:text-gray-400 mb-4">Please log in to write a review.</p>
-          <Button onClick={() => setIsLoggedIn(true)}>Log In to Review</Button>
+          <Button asChild>
+            <a href="/login">Log In to Review</a>
+          </Button>
         </div>
       )}
     </div>

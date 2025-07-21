@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { useSelector } from "react-redux"
 import type { RootState } from "@/store"
 import { useGetOrdersQuery } from "@/store/services/orderApi"
+import { useGetUserReviewsQuery } from "@/store/services/reviewApi"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ShoppingBag, Package, Clock, ArrowRight } from "lucide-react"
+import { ShoppingBag, Package, Clock, ArrowRight, User, MapPin, CreditCard, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
@@ -27,6 +28,7 @@ export default function CustomerDashboard() {
 
   const user = useSelector((state: RootState) => state.auth.user)
   const { data: orders, isLoading: isLoadingOrders } = useGetOrdersQuery()
+  const { data: userReviews = [] } = useGetUserReviewsQuery()
 
   const recentOrders = orders?.slice(0, 5) || []
 
@@ -90,6 +92,18 @@ export default function CustomerDashboard() {
               >
                 My Orders
               </TabsTrigger>
+              <TabsTrigger
+                value="reviews"
+                className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg"
+              >
+                My Reviews
+              </TabsTrigger>
+              {/* <TabsTrigger
+                value="profile"
+                className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-gray-300 hover:text-white transition-all duration-300 data-[state=active]:shadow-lg"
+              >
+                Profile
+              </TabsTrigger> */}
             </TabsList>
 
             <TabsContent value="overview" className="space-y-8 mt-8">
@@ -308,14 +322,29 @@ export default function CustomerDashboard() {
                                   ${total.toFixed(2)}
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    asChild
-                                    className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
-                                  >
-                                    <Link href={`/account/orders/${order.id}`}>Details</Link>
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      asChild
+                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                    >
+                                      <Link href={`/account/orders/${order.id}`}>Details</Link>
+                                    </Button>
+                                    {order.status === "delivered" && order.items && order.items.length > 0 && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        asChild
+                                        className="border-[#F3C998]/30 text-[#F3C998] hover:bg-[#F3C998]/10 hover:border-[#F3C998]/50 transition-all duration-300 backdrop-blur-sm"
+                                      >
+                                        <Link href={`/review/${order.items[0].product}`}>
+                                          <MessageSquare className="mr-1 h-3 w-3" />
+                                          Review
+                                        </Link>
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             )
@@ -340,9 +369,165 @@ export default function CustomerDashboard() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="reviews" className="space-y-8 mt-8">
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-white text-2xl font-bold">My Reviews</CardTitle>
+                  <CardDescription className="text-gray-300 text-lg">Reviews you've written for products</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {userReviews.length > 0 ? (
+                    <div className="space-y-6">
+                      {userReviews.map((review) => (
+                        <div key={review.id} className="border-b border-white/10 pb-6 last:border-0">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="flex items-center">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <span
+                                  key={star}
+                                  className={`text-lg ${
+                                    star <= (review.rating || 0)
+                                      ? "text-yellow-400"
+                                      : "text-gray-500"
+                                  }`}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="text-gray-300 text-base mb-3">{review.comment}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">Product ID: {review.product}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                            >
+                              <Link href={`/products/${review.product}`}>View Product</Link>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <p className="text-gray-400 mb-8 text-xl">You haven't written any reviews yet.</p>
+                      <p className="text-gray-500 mb-8">Write reviews for your delivered orders to help other customers!</p>
+                      <Link href="/account/orders">
+                        <Button
+                          size="lg"
+                          className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+                          style={{ backgroundColor: "#F3C998" }}
+                        >
+                          View My Orders
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="profile" className="space-y-8 mt-8">
+              <div className="grid gap-8 md:grid-cols-2">
+                <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="text-white text-2xl font-bold">Personal Information</CardTitle>
+                    <CardDescription className="text-gray-300 text-lg">Your account details</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-8">
+                      <div className="flex items-center">
+                        <User className="h-6 w-6 text-[#F3C998] mr-4" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-400 mb-1">Username</p>
+                          <p className="text-white font-semibold text-lg">{user?.username}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <CreditCard className="h-6 w-6 text-[#F3C998] mr-4" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-400 mb-1">Email</p>
+                          <p className="text-white font-semibold text-lg">{user?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin className="h-6 w-6 text-[#F3C998] mr-4" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-400 mb-1">Address</p>
+                          <p className="text-white font-semibold text-lg">
+                            {user?.profile?.address || "No address provided"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-10">
+                      <Link href="/account/profile/edit">
+                        <Button
+                          size="lg"
+                          className="w-full text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+                          style={{ backgroundColor: "#F3C998" }}
+                        >
+                          Edit Profile
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="text-white text-2xl font-bold">Account Settings</CardTitle>
+                    <CardDescription className="text-gray-300 text-lg">Manage your account preferences</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-8">
+                      <div>
+                        <p className="text-sm font-medium text-gray-400 mb-2">Account Type</p>
+                        <p className="flex items-center">
+                          <Badge className="bg-[#F3C998]/20 text-[#F3C998] border-[#F3C998]/30 px-3 py-1 text-base">
+                            {user?.role}
+                          </Badge>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-400 mb-2">Member Since</p>
+                        <p className="text-white font-semibold text-lg">
+                          {user?.date_joined ? new Date(user.date_joined).toLocaleDateString() : "Unknown"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-10 space-y-4">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                      >
+                        Change Password
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                      >
+                        Notification Settings
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
       </div>
+
+
     </div>
   )
 }

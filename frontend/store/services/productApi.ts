@@ -92,7 +92,7 @@ export const productApi = api.injectEndpoints({
     }),
     addReview: builder.mutation<ProductReview, { productId: number; review: Partial<ProductReview> }>({
       query: ({ productId, review }) => ({
-        url: `products/${productId}/reviews/`,
+        url: `products/${productId}/add-review/`,
         method: "POST",
         body: review,
       }),

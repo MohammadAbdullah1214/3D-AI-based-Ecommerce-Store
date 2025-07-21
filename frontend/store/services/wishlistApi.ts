@@ -4,7 +4,7 @@ import type { RootState } from '@/store';
 export const wishlistApi = createApi({
   reducerPath: 'wishlistApi',
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + '/wishlist/' : 'http://localhost:8000/api/wishlist/',
+    baseUrl: process.env.NEXT_PUBLIC_API_URL + '/wishlist/',
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootState).auth.accessToken;
       if (token) {
