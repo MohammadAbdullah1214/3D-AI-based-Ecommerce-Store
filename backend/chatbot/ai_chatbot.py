@@ -753,6 +753,8 @@ class AIChatbot:
         sizes = []
         price_range = None
         quantity = None
+        # Extract main nouns as dynamic keywords
+        dynamic_keywords = []
         # Detect if this is a follow-up/comparison query
         follow_up_keywords = ['which one', 'which is', 'which', 'best', 'better', 'value', 'worth', 'stylish', 'perfect', 'party', 'occasion', 'event', 'formal', 'casual', 'compare']
         lowered_message = message.lower()
@@ -842,26 +844,26 @@ class AIChatbot:
                         if next_token and next_token.text.lower() in [c.lower() for c in self._category_list]:
                             quantity = int(token.text)
         print(f"[DEBUG] Extracted quantity: {quantity} from message: '{message}'")
-        # Fallback: if no category found, use top keyword as pseudo-category (skip for follow-up)
-        # But don't create fallback categories if colors are already detected (to avoid "Grey" category)
-        if not categories and not is_follow_up and not colors:
-            for token in doc:
-                if token.pos_ in ['NOUN', 'PROPN'] and len(token.text) > 2:
-                    categories.append(token.text.capitalize())
-                    print(f"[DEBUG] Fallback category used: {token.text.capitalize()}")
-                    break
+        # Extract main nouns as dynamic keywords (not in categories or brands)
+        for token in doc:
+            if token.pos_ in ['NOUN', 'PROPN'] and len(token.text) > 2:
+                ttext = token.text.lower()
+                if ttext not in [c.lower() for c in categories] and ttext not in [b.lower() for b in brands]:
+                    dynamic_keywords.append(token.lemma_)
         # Remove duplicates
         brands = list(set(brands))
         categories = list(set(categories))
         colors = list(set(colors))
         sizes = list(set(sizes))
+        dynamic_keywords = list(set(dynamic_keywords))
         return {
             'brands': brands,
             'categories': categories,
             'colors': colors,
             'sizes': sizes,
             'price_range': price_range,
-            'quantity': quantity
+            'quantity': quantity,
+            'keywords': dynamic_keywords
         }
     
     def _extract_brands_semantic(self, message: str, message_embedding: np.ndarray) -> List[str]:
@@ -1327,19 +1329,26 @@ class AIChatbot:
             # --- NEW: If still no products, try keyword fallback (search name/description/category for user query/keywords) ---
             if not products.exists():
                 keyword_filter = Q()
-                # Try all entities as keywords
+                # Use all extracted keywords (nouns from user query)
+                all_keywords = set()
                 for key in ['categories', 'brands', 'colors', 'sizes', 'keywords']:
                     for kw in entities.get(key, []) or []:
-                        keyword_filter |= (
-                            Q(name__icontains=kw) | Q(description__icontains=kw) | Q(category__name__icontains=kw)
-                        )
-                # Fallback: use the original message as a keyword
+                        if kw:
+                            all_keywords.add(str(kw).strip())
+                # Always include the original user message as a search term
+                user_message = None
                 if hasattr(session, 'last_message') and session.last_message:
-                    keyword_filter |= (
-                        Q(name__icontains=session.last_message) | Q(description__icontains=session.last_message)
-                    )
+                    user_message = session.last_message
+                # If no last_message, use the current message if available
+                if not user_message and 'message' in locals():
+                    user_message = message
+                # Build the filter: match any keyword in name, description, or category name
+                for kw in all_keywords:
+                    keyword_filter |= Q(name__icontains=kw) | Q(description__icontains=kw) | Q(category__name__icontains=kw)
+                if user_message:
+                    keyword_filter |= Q(name__icontains=user_message) | Q(description__icontains=user_message) | Q(category__name__icontains=user_message)
                 products = Product.objects.filter(is_active=True).filter(keyword_filter)
-                print(f"🔍 After keyword fallback filter: {products.count()} products")
+                print(f"🔍 After universal keyword fallback filter: {products.count()} products")
                 filtered = True
             # --- CONTEXT-AWARE VARIANT INQUIRY ---
             if intent == 'variant_inquiry' and (not products.exists() or not entities.get('categories')):

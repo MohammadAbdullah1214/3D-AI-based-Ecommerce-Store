@@ -11,6 +11,13 @@ import shutil
 import subprocess
 from products.utils.image_processing import remove_background, extract_largest_contour
 import numpy as np
+import requests
+
+def download_image(url, dest_path):
+    r = requests.get(url)
+    r.raise_for_status()
+    with open(dest_path, 'wb') as f:
+        f.write(r.content)
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +38,18 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
 
         images = []
         for gen_image in generation_request.images.all():
-            image_path = gen_image.image.path
-            logger.info(f"Processing image: {image_path}")
-            if not os.path.exists(image_path):
-                logger.error(f"Image file does not exist: {image_path}")
-                raise FileNotFoundError(f"Image file not found: {image_path}")
+
+            image_url = gen_image.image.url  # Use the public URL
+            local_image_path = os.path.join(temp_dir, f"downloaded_{gen_image.id}.png")
+            logger.info(f"Downloading image from: {image_url}")
+            download_image(image_url, local_image_path)
 
             # Remove background and extract contour
-            cleaned_img, mask = remove_background(image_path, method='auto')
+            cleaned_img, mask = remove_background(local_image_path, method='auto')
             contour = extract_largest_contour(mask)
             if not contour or len(contour) < 3:
-                logger.error(f"No valid contour found in image: {image_path}")
-                raise ValueError(f"No valid contour found in image: {image_path}")
+                logger.error(f"No valid contour found in image: {local_image_path}")
+                raise ValueError(f"No valid contour found in image: {local_image_path}")
 
             # Save cleaned image and contour as temp files
             cleaned_img_path = os.path.join(temp_dir, f"cleaned_{gen_image.id}.png")
