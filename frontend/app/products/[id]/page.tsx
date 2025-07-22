@@ -61,13 +61,13 @@ export default function ProductDetailPage() {
   const images = productMedia.filter(m => m.file_type === 'image');
   const videos = productMedia.filter(m => m.file_type === 'video');
   const models = productMedia.filter(m => m.file_type === 'model' || m.file_type === 'model_3d');
-  // Prefer .glb, fallback to .obj
+  // Only use .glb files for 3D model
   let modelUrl = undefined;
   if (models.length > 0) {
     const glb = models.find(m => m.file && m.file.endsWith('.glb'));
-    const obj = models.find(m => m.file && m.file.endsWith('.obj'));
-    modelUrl = glb ? getBackendMediaUrl(glb.file) : (obj ? getBackendMediaUrl(obj.file) : undefined);
+    modelUrl = glb ? getBackendMediaUrl(glb.file) : undefined;
   }
+  console.log('3D Model URL:', modelUrl);
 
   // Prepare carousel images
   const carouselImages = images.length > 0
@@ -405,27 +405,23 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* 3D Model Gallery */}
-                {models.length > 0 && (
+                {modelUrl && (
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-[#F3C998]/10 transition-all duration-500">
                     <h3 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
                       <Cube className="h-5 w-5" style={{ color: "#F3C998" }} />
                       3D Model View
                     </h3>
-                    {modelUrl ? (
-                      <Simple3DViewer
-                        key={modelUrl}
-                        modelUrl={modelUrl}
-                        productName={product.name}
-                        isDefault={false}
-                        width={500}
-                        height={400}
-                        showControls={true}
-                        showARButton={true}
-                        className="mb-4"
-                      />
-                    ) : (
-                      <div className="text-gray-400">No 3D model available.</div>
-                    )}
+                    <Simple3DViewer
+                      key={modelUrl}
+                      modelUrl={modelUrl}
+                      productName={product.name}
+                      isDefault={false}
+                      width={500}
+                      height={400}
+                      showControls={true}
+                      showARButton={true}
+                      className="mb-4"
+                    />
                   </div>
                 )}
 

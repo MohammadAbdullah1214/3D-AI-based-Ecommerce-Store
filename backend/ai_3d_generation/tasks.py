@@ -69,7 +69,7 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
 
         # For now, use the first image for mesh generation (can be extended for multi-view)
         img_info = images[0]
-        export_path = os.path.join(temp_dir, f"generated_{request_id}.obj")
+        export_path = os.path.join(temp_dir, f"generated_{request_id}.glb")
         blender_script = os.path.join(os.path.dirname(__file__), "blender_mesh_from_contour.py")
         blender_exe = os.environ.get('BLENDER_EXECUTABLE_PATH') or getattr(
             __import__('django.conf').conf.settings, 'BLENDER_EXECUTABLE_PATH', 'blender')
@@ -113,22 +113,12 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
         # Create ProductImage entry for the generated model(s)
         from products.models import ProductImage
         # Register .glb if it exists
-        glb_path = export_path.replace('.obj', '.glb') if export_path.endswith('.obj') else export_path
-        if os.path.exists(glb_path) and glb_path.endswith('.glb'):
-            with open(glb_path, 'rb') as glb_file:
+        if os.path.exists(export_path) and export_path.endswith('.glb'):
+            with open(export_path, 'rb') as glb_file:
                 ProductImage.objects.create(
                     product=generation_request.product,
-                    file=File(glb_file, name=os.path.basename(glb_path)),
+                    file=File(glb_file, name=os.path.basename(export_path)),
                     file_type='model',  # or 'model_3d' if you want to distinguish
-                    angle_tag=None
-                )
-        # Register .obj if it exists and is not the same as glb
-        if export_path.endswith('.obj') and os.path.exists(export_path):
-            with open(export_path, 'rb') as obj_file:
-                ProductImage.objects.create(
-                    product=generation_request.product,
-                    file=File(obj_file, name=os.path.basename(export_path)),
-                    file_type='model',
                     angle_tag=None
                 )
         logger.info(f"3D generation completed for request {request_id} ({clothing_type})")
