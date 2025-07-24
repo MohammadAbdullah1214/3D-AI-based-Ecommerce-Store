@@ -11,6 +11,13 @@ import shutil
 import subprocess
 from products.utils.image_processing import remove_background, extract_largest_contour
 import numpy as np
+import requests
+
+def download_image(url, dest_path):
+    r = requests.get(url)
+    r.raise_for_status()
+    with open(dest_path, 'wb') as f:
+        f.write(r.content)
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +38,18 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
 
         images = []
         for gen_image in generation_request.images.all():
-            image_path = gen_image.image.path
-            logger.info(f"Processing image: {image_path}")
-            if not os.path.exists(image_path):
-                logger.error(f"Image file does not exist: {image_path}")
-                raise FileNotFoundError(f"Image file not found: {image_path}")
+
+            image_url = gen_image.image.url  # Use the public URL
+            local_image_path = os.path.join(temp_dir, f"downloaded_{gen_image.id}.png")
+            logger.info(f"Downloading image from: {image_url}")
+            download_image(image_url, local_image_path)
 
             # Remove background and extract contour
-            cleaned_img, mask = remove_background(image_path, method='auto')
+            cleaned_img, mask = remove_background(local_image_path, method='auto')
             contour = extract_largest_contour(mask)
             if not contour or len(contour) < 3:
-                logger.error(f"No valid contour found in image: {image_path}")
-                raise ValueError(f"No valid contour found in image: {image_path}")
+                logger.error(f"No valid contour found in image: {local_image_path}")
+                raise ValueError(f"No valid contour found in image: {local_image_path}")
 
             # Save cleaned image and contour as temp files
             cleaned_img_path = os.path.join(temp_dir, f"cleaned_{gen_image.id}.png")
@@ -62,7 +69,7 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
 
         # For now, use the first image for mesh generation (can be extended for multi-view)
         img_info = images[0]
-        export_path = os.path.join(temp_dir, f"generated_{request_id}.obj")
+        export_path = os.path.join(temp_dir, f"generated_{request_id}.glb")
         blender_script = os.path.join(os.path.dirname(__file__), "blender_mesh_from_contour.py")
         blender_exe = os.environ.get('BLENDER_EXECUTABLE_PATH') or getattr(
             __import__('django.conf').conf.settings, 'BLENDER_EXECUTABLE_PATH', 'blender')
@@ -106,22 +113,12 @@ def process_3d_generation(self, request_id, clothing_type='tshirt'):
         # Create ProductImage entry for the generated model(s)
         from products.models import ProductImage
         # Register .glb if it exists
-        glb_path = export_path.replace('.obj', '.glb') if export_path.endswith('.obj') else export_path
-        if os.path.exists(glb_path) and glb_path.endswith('.glb'):
-            with open(glb_path, 'rb') as glb_file:
+        if os.path.exists(export_path) and export_path.endswith('.glb'):
+            with open(export_path, 'rb') as glb_file:
                 ProductImage.objects.create(
                     product=generation_request.product,
-                    file=File(glb_file, name=os.path.basename(glb_path)),
+                    file=File(glb_file, name=os.path.basename(export_path)),
                     file_type='model',  # or 'model_3d' if you want to distinguish
-                    angle_tag=None
-                )
-        # Register .obj if it exists and is not the same as glb
-        if export_path.endswith('.obj') and os.path.exists(export_path):
-            with open(export_path, 'rb') as obj_file:
-                ProductImage.objects.create(
-                    product=generation_request.product,
-                    file=File(obj_file, name=os.path.basename(export_path)),
-                    file_type='model',
                     angle_tag=None
                 )
         logger.info(f"3D generation completed for request {request_id} ({clothing_type})")

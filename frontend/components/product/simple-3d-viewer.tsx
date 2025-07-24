@@ -4,7 +4,6 @@ import { useRef, useEffect, useState, Suspense, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js"
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RotateCcw, Maximize2, RotateCw, Minimize2 } from "lucide-react"
@@ -141,7 +140,6 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
   const groupRef = useRef<THREE.Group>(null)
   const [error, setError] = useState(false)
   const [gltf, setGltf] = useState<GLTF | null>(null)
-  const [obj, setObj] = useState<THREE.Group | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -169,94 +167,61 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
     setLoading(true)
     setError(false)
 
-    if (url.endsWith(".obj")) {
-      // Load OBJ model
-      const loader = new OBJLoader()
-      loader.load(
-        url,
-        (object) => {
-          // Center and scale the object
-          const box = new THREE.Box3().setFromObject(object)
+    // Load GLB/GLTF model
+    const loader = new GLTFLoader()
+    loader.load(
+      url,
+      (loadedGltf) => {
+        try {
+          // Clone the scene to avoid issues with multiple instances
+          const scene = loadedGltf.scene.clone()
+
+          // Calculate bounding box for proper centering
+          const box = new THREE.Box3().setFromObject(scene)
           const center = box.getCenter(new THREE.Vector3())
           const size = box.getSize(new THREE.Vector3())
 
           // Center the model
-          object.position.set(-center.x, -center.y, -center.z)
+          scene.position.set(-center.x, -center.y, -center.z)
 
+          // Scale to fit nicely in view
           const maxDim = Math.max(size.x, size.y, size.z)
           if (maxDim > 0) {
             const scale = 2.5 / maxDim
-            object.scale.setScalar(scale)
+            scene.scale.setScalar(scale)
           }
 
-          setObj(object)
-          setLoading(false)
-        },
-        (progress) => {
-          const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0
-          console.log("OBJ Loading progress:", percent + "%")
-        },
-        (err) => {
-          console.error("Failed to load OBJ:", err)
-          setError(true)
-          setLoading(false)
-        },
-      )
-    } else {
-      // Load GLB/GLTF model
-      const loader = new GLTFLoader()
-      loader.load(
-        url,
-        (loadedGltf) => {
-          try {
-            // Clone the scene to avoid issues with multiple instances
-            const scene = loadedGltf.scene.clone()
-
-            // Calculate bounding box for proper centering
-            const box = new THREE.Box3().setFromObject(scene)
-            const center = box.getCenter(new THREE.Vector3())
-            const size = box.getSize(new THREE.Vector3())
-
-            // Center the model
-            scene.position.set(-center.x, -center.y, -center.z)
-
-            // Scale to fit nicely in view
-            const maxDim = Math.max(size.x, size.y, size.z)
-            if (maxDim > 0) {
-              const scale = 2.5 / maxDim
-              scene.scale.setScalar(scale)
-            }
-
-            // Ensure all materials are visible
-            scene.traverse((child) => {
-              if (child instanceof THREE.Mesh) {
-                child.castShadow = true
-                child.receiveShadow = true
-                if (child.material) {
-                  child.material.needsUpdate = true
-                }
+          // Ensure all materials are visible
+          scene.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              child.castShadow = true
+              child.receiveShadow = true
+              if (child.material) {
+                child.material.needsUpdate = true
               }
-            })
+            }
+          })
 
-            setGltf({ ...loadedGltf, scene })
-            setLoading(false)
-          } catch (err) {
-            console.error("Error processing GLTF:", err)
-            setError(true)
-            setLoading(false)
-          }
-        },
-        (progress) => {
-          const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0
-          console.log("GLTF Loading progress:", percent + "%")
-        },
-        (err) => {
-          console.error("Failed to load GLTF:", err)
+          setGltf({ ...loadedGltf, scene })
+          setLoading(false)
+        } catch (err) {
+          console.error("Error processing GLTF:", err)
           setError(true)
           setLoading(false)
-        },
-      )
-    }
+        }
+      },
+      (progress) => {
+        const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0
+        console.log("GLTF Loading progress:", percent + "%")
+      },
+      (err) => {
+        console.error("Failed to load GLTF:", err)
+        setError(true)
+        setLoading(false)
+      },
+    )
+    // Log the model URL for debugging
+    console.log('Loading 3D model from URL:', url)
   }, [url])
 
   // Manual rotation for default models
@@ -277,14 +242,13 @@ function Model({ url, isDefault }: { url: string; isDefault: boolean }) {
     )
   }
 
-  if (error || (!gltf && !obj)) {
+  if (error || !gltf) {
     return <FallbackModel isDefault={isDefault} />
   }
 
   return (
     <group ref={groupRef} position={[0, -0.8, 0]}>
       {gltf && <primitive object={gltf.scene} />}
-      {obj && <primitive object={obj} />}
     </group>
   )
 }

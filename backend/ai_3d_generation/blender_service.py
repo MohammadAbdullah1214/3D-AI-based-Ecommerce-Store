@@ -9,6 +9,7 @@ import numpy as np
 from scipy import ndimage
 from django.conf import settings
 
+
 logger = logging.getLogger(__name__)
 
 # pyright: reportCallIssue=false
@@ -31,7 +32,7 @@ class BlenderModelGenerator:
                 return blender_path
         
         # Your specific path
-        specific_path = r"C:/Users/Abdul Rehman/Downloads/blender-4.0.2-windows-x64/blender.exe"
+        specific_path = r"/home/abdullah/Applications/blender-4.0.2-linux-x64/blender"
         if os.path.exists(specific_path):
             return specific_path
         
@@ -510,32 +511,16 @@ try:
         export_cameras=False,
         export_lights=False
     )
-    
     # Verify the file was created
     if os.path.exists(output_path):
         file_size = os.path.getsize(output_path)
         print(f"Model exported successfully to: {{output_path}} (size: {{file_size}} bytes)")
     else:
-        print(f"GLB export failed, trying OBJ...")
-        raise Exception("GLB export failed")
-        
+        print(f"GLB export failed: file not created.")
+        raise Exception("GLB export failed: file not created.")
 except Exception as e:
-    print(f"GLB export error: {{e}}, trying OBJ export...")
-    try:
-        obj_output_path = output_path.replace('.glb', '.obj')
-        bpy.ops.export_scene.obj(
-            filepath=obj_output_path,
-            use_selection=False,
-            use_materials=True
-        )
-        if os.path.exists(obj_output_path):
-            file_size = os.path.getsize(obj_output_path)
-            print(f"Model exported as OBJ: {{obj_output_path}} (size: {{file_size}} bytes)")
-        else:
-            print(f"OBJ export also failed")
-    except Exception as obj_error:
-        print(f"OBJ export error: {{obj_error}}")
-        print("Both GLB and OBJ exports failed")
+    print(f"GLB export error: {{e}}")
+    raise
 '''
         
         # Save script to temp file
@@ -545,11 +530,12 @@ except Exception as e:
         
         return script_path
     
-    def _run_blender_script(self, script_path, progress_callback=None):
-        """Run Blender script and return output path"""
-        output_path = os.path.join(self.temp_dir, 'generated_model.glb')
-        output_path_obj = os.path.join(self.temp_dir, 'generated_model.obj')
-        
+    def _run_blender_script(self, script_path, progress_callback=None, export_format='GLB'):
+        """Run Blender script and return output path. Only allow .glb or .gltf export. Log and raise error if export fails."""
+        if export_format.upper() not in ['GLB', 'GLTF']:
+            raise ValueError('Only GLB or GLTF export formats are supported.')
+        ext = '.glb' if export_format.upper() == 'GLB' else '.gltf'
+        output_path = os.path.join(self.temp_dir, f'generated_model{ext}')
         try:
             # Run Blender in background mode
             cmd = [
@@ -557,14 +543,11 @@ except Exception as e:
                 "--background",
                 "--python", script_path
             ]
-            
             if progress_callback:
-                progress_callback("running_blender", 60, "Executing Blender script...")
-            
+                progress_callback("running_blender", 60, f"Executing Blender script for {export_format} export...")
             logger.info(f"Running Blender command: {' '.join(cmd)}")
             logger.info(f"Script path: {script_path}")
             logger.info(f"Temp directory: {self.temp_dir}")
-            
             # Run the command
             result = subprocess.run(
                 cmd,
@@ -573,32 +556,23 @@ except Exception as e:
                 timeout=300,  # 5 minute timeout
                 cwd=self.temp_dir
             )
-            
             logger.info(f"Blender stdout:\n{result.stdout}")
             if result.stderr:
-                logger.warning(f"Blender stderr:\n{result.stderr}")
-            
+                logger.error(f"Blender stderr:\n{result.stderr}")
             if result.returncode != 0:
                 logger.error(f"Blender script failed with return code {result.returncode}: {result.stderr}")
                 raise RuntimeError(f"Blender script failed with return code {result.returncode}: {result.stderr}")
-            
-            # Check for output files
+            # Check for output file
             if os.path.exists(output_path):
                 file_size = os.path.getsize(output_path)
-                logger.info(f"GLB file generated successfully: {output_path} (size: {file_size} bytes)")
+                logger.info(f"{export_format} file generated successfully: {output_path} (size: {file_size} bytes)")
                 return output_path
-            elif os.path.exists(output_path_obj):
-                file_size = os.path.getsize(output_path_obj)
-                logger.info(f"OBJ file generated successfully: {output_path_obj} (size: {file_size} bytes)")
-                return output_path_obj
             else:
-                # List files in temp directory for debugging
                 temp_files = os.listdir(self.temp_dir)
-                logger.error(f"No output file found. Temp directory contents: {temp_files}")
+                logger.error(f"No {export_format} output file found. Temp directory contents: {temp_files}")
                 logger.error(f"Blender stdout:\n{result.stdout}")
                 logger.error(f"Blender stderr:\n{result.stderr}")
-                raise RuntimeError(f"Blender did not generate output file. Checked for: {output_path} and {output_path_obj}")
-            
+                raise RuntimeError(f"Blender did not generate {export_format} output file. Checked for: {output_path}")
         except subprocess.TimeoutExpired:
             logger.error("Blender script timed out after 5 minutes")
             raise RuntimeError("Blender script timed out after 5 minutes")

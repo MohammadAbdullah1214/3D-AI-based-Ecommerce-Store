@@ -66,4 +66,19 @@ center /= len(obj.data.vertices)
 obj.location = -center
 
 # --- EXPORT ---
-bpy.ops.wm.obj_export(filepath=EXPORT_PATH) 
+print('=== GLB ONLY EXPORT SCRIPT ===')
+EXPORT_PATH_GLB = EXPORT_PATH
+if EXPORT_PATH_GLB.endswith('.obj'):
+    EXPORT_PATH_GLB = EXPORT_PATH_GLB[:-4] + '.glb'
+
+bpy.ops.export_scene.gltf(
+    filepath=EXPORT_PATH_GLB,
+    use_selection=False,
+    export_format='GLB',
+    export_texcoords=True,
+    export_materials='EXPORT',
+    export_colors=True,
+    export_cameras=False,
+    export_lights=False
+)
+print(f"Exported GLB to: {EXPORT_PATH_GLB}") 
