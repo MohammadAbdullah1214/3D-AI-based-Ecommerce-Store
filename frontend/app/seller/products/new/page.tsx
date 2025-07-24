@@ -162,6 +162,9 @@ export default function NewProductPage() {
       if (values.discount_price) {
         formData.append("discount_price", String(values.discount_price))
       }
+      // Add status and is_active to FormData
+      formData.append("status", values.status)
+      formData.append("is_active", String(values.is_active))
 
       // Append all files to the 'images' field, as required by backend
       selectedFiles.images.forEach((file) => {
