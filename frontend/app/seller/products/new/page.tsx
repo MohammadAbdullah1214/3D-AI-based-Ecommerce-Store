@@ -728,7 +728,7 @@ export default function NewProductPage() {
                                 <FormLabel className="text-white">Product Category</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
-                                    <SelectTrigger className="bg-white/5 border-white/20 text-white hover:bg-white/10 focus:bg-white/10">
+                                    <SelectTrigger className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200" style={{ colorScheme: 'dark' }}>
                                       <SelectValue placeholder="Select a category" />
                                     </SelectTrigger>
                                   </FormControl>
@@ -827,7 +827,7 @@ export default function NewProductPage() {
                                 <FormLabel className="text-white">Status</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
-                                    <SelectTrigger className="bg-white/5 border-white/20 text-white hover:bg-white/10 focus:bg-white/10">
+                                    <SelectTrigger className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200" style={{ colorScheme: 'dark' }}>
                                       <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
                                   </FormControl>

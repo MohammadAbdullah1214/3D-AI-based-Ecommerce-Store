@@ -204,7 +204,8 @@ export default function CategoryManagementSection() {
                 <select
                   value={formData.parent_id || ""}
                   onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full bg-white/10 border border-white/20 rounded-md p-3 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-md p-3 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
+                  style={{ colorScheme: 'dark' }}
                 >
                   <option value="">No Parent</option>
                   {categories?.map((category) => (
@@ -378,7 +379,8 @@ export default function CategoryManagementSection() {
               <select
                 value={formData.parent_id || ""}
                 onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? Number(e.target.value) : undefined })}
-                className="w-full bg-white/10 border border-white/20 rounded-md p-3 text-white"
+                className="w-full bg-white/10 border border-white/20 rounded-md p-3 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
+                style={{ colorScheme: 'dark' }}
               >
                 <option value="">No Parent</option>
                 {categories?.filter(cat => cat.id !== editingCategory?.id).map((category) => (

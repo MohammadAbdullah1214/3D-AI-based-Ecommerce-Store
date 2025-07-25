@@ -242,6 +242,16 @@ export default function ProductsPage() {
     )
   }
 
+  const sortedProducts = [...(products || [])].sort((a, b) => {
+    if (filters.sortBy === "newest") return new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime();
+    if (filters.sortBy === "price_asc") return Number(a.price) - Number(b.price);
+    if (filters.sortBy === "price_desc") return Number(b.price) - Number(a.price);
+    if (filters.sortBy === "name_asc") return a.name.localeCompare(b.name);
+    if (filters.sortBy === "name_desc") return b.name.localeCompare(a.name);
+    // Optionally, add 'popular' sort if you have a popularity metric
+    return 0;
+  });
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#1D212D] via-[#2A2F3A] to-[#1D212D] relative">
       {/* Full screen background pattern */}
@@ -528,7 +538,7 @@ export default function ProductsPage() {
                     <span className="text-base font-medium text-white">Sort by:</span>
                   </div>
                   <Select value={filters.sortBy} onValueChange={value => setFilters({ ...filters, sortBy: value })}>
-                    <SelectTrigger className="w-56 bg-white/10 border-white/20 text-white hover:bg-white/10 focus:bg-white/10">
+                    <SelectTrigger className="w-56 bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200" style={{ colorScheme: 'dark' }}>
                       <SelectValue placeholder="Sort by..." />
                     </SelectTrigger>
                     <SelectContent className="bg-[#2A2F3A] border-white/20">
@@ -554,7 +564,7 @@ export default function ProductsPage() {
                   </div>
                 ) : products && products.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {products.map((product) => {
+                    {sortedProducts.map((product) => {
                       // Prepare carouselImages outside JSX
                       const imageUrls = product.image_urls || [];
                       const imageIds = product.image_ids || [];

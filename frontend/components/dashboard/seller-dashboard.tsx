@@ -31,6 +31,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import type { Product } from "@/app/types/product"
 import { useToast } from "@/components/ui/use-toast"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 const formatCurrency = (value: any): string => {
   if (value === undefined || value === null) return "0.00"
@@ -52,6 +53,9 @@ export default function SellerDashboard() {
   const user = useSelector((state: RootState) => state.auth.user)
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<string>("newest");
+  const [productSortOrder, setProductSortOrder] = useState<string>("newest");
 
   useEffect(() => {
     const tabParam = searchParams.get("tab")
@@ -70,6 +74,15 @@ export default function SellerDashboard() {
   const products = allProducts?.filter(
     (product) => product.seller === user?.id || product.seller_username === user?.username,
   )
+
+  const sortedProducts = [...(products || [])].sort((a, b) => {
+    if (productSortOrder === "newest") return new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime();
+    if (productSortOrder === "price_asc") return Number(a.price) - Number(b.price);
+    if (productSortOrder === "price_desc") return Number(b.price) - Number(a.price);
+    if (productSortOrder === "name_asc") return a.name.localeCompare(b.name);
+    if (productSortOrder === "name_desc") return b.name.localeCompare(a.name);
+    return 0;
+  });
 
   const { data: stats, isLoading: isLoadingStats } = useGetDashboardStatsQuery()
 
@@ -91,6 +104,17 @@ export default function SellerDashboard() {
 
   const { data: lowStockProducts, isLoading: isLoadingLowStock } = useGetLowStockProductsQuery(5)
   const [deleteProduct, { isLoading: isDeletingProduct }] = useDeleteProductMutation()
+
+  // Filter and sort orders based on dropdowns
+  const filteredOrders = (orders || [])
+    .filter(order => statusFilter === "all" || order.status === statusFilter)
+    .sort((a, b) => {
+      if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sortOrder === "highest") return Number(b.total_price || 0) - Number(a.total_price || 0);
+      if (sortOrder === "lowest") return Number(a.total_price || 0) - Number(b.total_price || 0);
+      return 0;
+    });
 
   const handleRefreshProducts = () => {
     refetchProducts()
@@ -477,7 +501,7 @@ export default function SellerDashboard() {
                               >
                                 <TableCell className="font-medium text-white text-base">{product.name}</TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                  {product.category_name || "Uncategorized"}
+                                  {product.category_details?.name || product.category_name || "Uncategorized"}
                                 </TableCell>
                                 <TableCell>
                                   <Badge
@@ -562,11 +586,26 @@ export default function SellerDashboard() {
                     </div>
                   )}
 
+                  <div className="flex justify-end mb-6">
+                    <Select value={productSortOrder} onValueChange={setProductSortOrder}>
+                      <SelectTrigger className="w-56 bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
+                        <SelectValue placeholder="Sort by..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#2A2F3A] border-white/20">
+                        <SelectItem value="newest" className="text-white hover:bg-white/10">Newest Arrivals</SelectItem>
+                        <SelectItem value="price_asc" className="text-white hover:bg-white/10">Price: Low to High</SelectItem>
+                        <SelectItem value="price_desc" className="text-white hover:bg-white/10">Price: High to Low</SelectItem>
+                        <SelectItem value="name_asc" className="text-white hover:bg-white/10">Name: A to Z</SelectItem>
+                        <SelectItem value="name_desc" className="text-white hover:bg-white/10">Name: Z to A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {isLoadingProducts ? (
                     <div className="flex justify-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
                     </div>
-                  ) : products && products.length > 0 ? (
+                  ) : sortedProducts && sortedProducts.length > 0 ? (
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -580,7 +619,7 @@ export default function SellerDashboard() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {products?.map((product: Product) => (
+                          {sortedProducts?.map((product: Product) => (
                             <TableRow
                               key={product.id}
                               className="border-white/10 hover:bg-white/5 transition-colors duration-300"
@@ -683,41 +722,40 @@ export default function SellerDashboard() {
                     </div>
                   )}
 
-                  {isLoadingOrders ? (
-                    <div className="flex justify-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
-                    </div>
-                  ) : orders && orders.length > 0 ? (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center">
-                        <div className="flex space-x-3">
-                          <select
-                            className="bg-white/10 border border-white/20 rounded-lg p-3 text-white backdrop-blur-xl text-base"
-                            onChange={(e) => {
-                              console.log("Filter by status:", e.target.value)
-                            }}
-                          >
-                            <option value="all">All Statuses</option>
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="shipped">Shipped</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                          <select
-                            className="bg-white/10 border border-white/20 rounded-lg p-3 text-white backdrop-blur-xl text-base"
-                            onChange={(e) => {
-                              console.log("Sort by:", e.target.value)
-                            }}
-                          >
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
-                            <option value="highest">Highest Amount</option>
-                            <option value="lowest">Lowest Amount</option>
-                          </select>
-                        </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="flex space-x-3">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="w-48 bg-white/10 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
+                            <SelectValue placeholder="All Statuses" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#2A2F3A] border-white/20">
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="processing">Processing</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={sortOrder} onValueChange={setSortOrder}>
+                          <SelectTrigger className="w-48 bg-white/10 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
+                            <SelectValue placeholder="Newest First" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#2A2F3A] border-white/20">
+                            <SelectItem value="newest">Newest First</SelectItem>
+                            <SelectItem value="oldest">Oldest First</SelectItem>
+                            <SelectItem value="highest">Highest Amount</SelectItem>
+                            <SelectItem value="lowest">Lowest Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-
+                    </div>
+                    {isLoadingOrders ? (
+                      <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]" />
+                      </div>
+                    ) : filteredOrders && filteredOrders.length > 0 ? (
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
@@ -732,15 +770,15 @@ export default function SellerDashboard() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {orders.map((order) => (
+                            {filteredOrders.map((order) => (
                               <TableRow
                                 key={order.id}
                                 className="border-white/10 hover:bg-[#F3C998]/10 hover:text-[#F3C998] transition-colors duration-200 cursor-pointer"
                               >
                                 <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                  {order.customer_full_name || order.user_username || order.customer_username || "Customer"}
-                                </TableCell>
+                                    {order.customer_full_name || order.user_username || order.customer_username || "Customer"}
+                                  </TableCell>
                                 <TableCell className="text-gray-300 text-base">
                                   {new Date(order.created_at).toLocaleDateString()}
                                 </TableCell>
@@ -791,24 +829,19 @@ export default function SellerDashboard() {
                           </TableBody>
                         </Table>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-16">
-                      <p className="text-gray-400 mb-6 text-xl">No orders found for your products.</p>
-                      <p className="text-sm text-gray-500 mb-8">
-                        This could be because you don't have any orders yet, or there might be an issue with the API
-                        connection.
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={() => refetch()}
-                        className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
-                      >
-                        Try Again
-                      </Button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="text-center py-16">
+                        <p className="text-gray-400 mb-8 text-xl">No orders found for your products.</p>
+                        <Button
+                          size="lg"
+                          className="text-white font-semibold hover:scale-105 transition-all duration-300 shadow-lg bg-[#1D212D] border border-white/20"
+                          onClick={() => refetch()}
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -896,7 +929,7 @@ export default function SellerDashboard() {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={[
+                            data={stats?.sales_by_category || [
                               { name: "Electronics", value: 4000 },
                               { name: "Clothing", value: 3000 },
                               { name: "Home", value: 2000 },
@@ -908,10 +941,15 @@ export default function SellerDashboard() {
                             outerRadius={80}
                             fill="#F3C998"
                             dataKey="value"
-                            label={({ name, percent }: PieLabelRenderProps) => `${name}: ${(percent ?? 0) * 100}%`}
+                            label={({ name, percent }: PieLabelRenderProps) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
                           >
-                            {COLORS.map((color, index) => (
-                              <Cell key={`cell-${index}`} fill={color} />
+                            {(stats?.sales_by_category || [
+                              { name: "Electronics", value: 4000 },
+                              { name: "Clothing", value: 3000 },
+                              { name: "Home", value: 2000 },
+                              { name: "Books", value: 1000 },
+                            ]).map((entry: { name: string; value: number }, index: number) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
                           <Tooltip
@@ -924,6 +962,9 @@ export default function SellerDashboard() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
+                      {(!stats?.sales_by_category || stats.sales_by_category.length === 0) && (
+                        <div className="text-center py-8 text-gray-400 text-lg">No category sales data available.</div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

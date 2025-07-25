@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useGetDashboardStatsQuery } from "@/store/services/analyticsApi"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
   const totalUsers = dashboardStats?.total_users || 0
   const totalOrders = dashboardStats?.total_orders || 0
   const totalProducts = dashboardStats?.total_products || 0
-  const totalRevenue = dashboardStats?.total_revenue || 0
+  const totalRevenue = dashboardStats?.total_revenue ?? dashboardStats?.total_sales ?? 0;
   const usersChange = dashboardStats?.users_change || 0
   const ordersChange = dashboardStats?.orders_change || 0
   const productsChange = dashboardStats?.products_change || 0
@@ -83,6 +84,30 @@ export default function AdminDashboard() {
   const [createCategory] = useCreateCategoryMutation()
   const [updateCategory] = useUpdateCategoryMutation()
   const [deleteCategory] = useDeleteCategoryMutation()
+
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<string>("newest");
+  const [productSortOrder, setProductSortOrder] = useState<string>("newest");
+
+  // Filter and sort orders based on dropdowns
+  const filteredOrders = (orders || [])
+    .filter(order => statusFilter === "all" || order.status === statusFilter)
+    .sort((a, b) => {
+      if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sortOrder === "highest") return Number(b.total_price || 0) - Number(a.total_price || 0);
+      if (sortOrder === "lowest") return Number(a.total_price || 0) - Number(b.total_price || 0);
+      return 0;
+    });
+
+  const sortedProducts = [...(products || [])].sort((a, b) => {
+    if (productSortOrder === "newest") return new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime();
+    if (productSortOrder === "price_asc") return Number(a.price) - Number(b.price);
+    if (productSortOrder === "price_desc") return Number(b.price) - Number(a.price);
+    if (productSortOrder === "name_asc") return a.name.localeCompare(b.name);
+    if (productSortOrder === "name_desc") return b.name.localeCompare(a.name);
+    return 0;
+  });
 
   useEffect(() => {
     console.log("Admin orders data:", orders)
@@ -448,7 +473,11 @@ export default function AdminDashboard() {
                                           ? "bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1"
                                           : order.status === "pending"
                                             ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-3 py-1"
-                                            : "bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
+                                            : order.status === "processing"
+                                              ? "bg-blue-400/20 text-blue-300 border-blue-400/30 px-3 py-1"
+                                              : order.status === "shipped"
+                                                ? "bg-indigo-400/20 text-indigo-300 border-indigo-400/30 px-3 py-1"
+                                                : "bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
                                     }
                                   >
                                     {order.status}
@@ -648,29 +677,30 @@ export default function AdminDashboard() {
                   <div className="space-y-6">
                     <div className="flex flex-wrap gap-4 items-center justify-between">
                       <div className="flex flex-wrap gap-3">
-                        <select
-                          className="bg-white/10 border border-white/20 rounded-lg p-3 text-white backdrop-blur-xl text-base"
-                          onChange={(e) => {
-                            console.log("Filter by status:", e.target.value)
-                          }}
-                        >
-                          <option value="all">All Statuses</option>
-                          <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                        <select
-                          className="bg-white/10 border border-white/20 rounded-lg p-3 text-white backdrop-blur-xl text-base"
-                          onChange={(e) => {
-                            console.log("Filter by seller:", e.target.value)
-                          }}
-                        >
-                          <option value="all">All Sellers</option>
-                          <option value="1">Seller 1</option>
-                          <option value="2">Seller 2</option>
-                        </select>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="w-48 bg-white/10 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
+                            <SelectValue placeholder="All Statuses" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#2A2F3A] border-white/20">
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="processing">Processing</SelectItem>
+                            <SelectItem value="shipped">Shipped</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={sortOrder} onValueChange={setSortOrder}>
+                          <SelectTrigger className="w-48 bg-white/10 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
+                            <SelectValue placeholder="Newest First" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#2A2F3A] border-white/20">
+                            <SelectItem value="newest">Newest First</SelectItem>
+                            <SelectItem value="oldest">Oldest First</SelectItem>
+                            <SelectItem value="highest">Highest Amount</SelectItem>
+                            <SelectItem value="lowest">Lowest Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <input
                           type="date"
                           className="bg-white/10 border border-white/20 rounded-lg p-3 text-white backdrop-blur-xl text-base"
@@ -684,7 +714,7 @@ export default function AdminDashboard() {
                       <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
                       </div>
-                    ) : orders && orders.length > 0 ? (
+                    ) : filteredOrders.length > 0 ? (
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
@@ -699,7 +729,7 @@ export default function AdminDashboard() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {orders.map((order) => (
+                            {filteredOrders.map((order) => (
                               <TableRow
                                 key={order.id}
                                 className="border-white/10 hover:bg-white/5 transition-colors duration-300"
@@ -723,7 +753,11 @@ export default function AdminDashboard() {
                                           ? "bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1"
                                           : order.status === "pending"
                                             ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-3 py-1"
-                                            : "bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
+                                            : order.status === "processing"
+                                              ? "bg-blue-400/20 text-blue-300 border-blue-400/30 px-3 py-1"
+                                              : order.status === "shipped"
+                                                ? "bg-indigo-400/20 text-indigo-300 border-indigo-400/30 px-3 py-1"
+                                                : "bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
                                     }
                                   >
                                     {order.status}
@@ -813,6 +847,20 @@ export default function AdminDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="flex justify-end mb-6">
+                    <Select value={productSortOrder} onValueChange={setProductSortOrder}>
+                      <SelectTrigger className="w-56 bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
+                        <SelectValue placeholder="Sort by..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#2A2F3A] border-white/20">
+                        <SelectItem value="newest" className="text-white hover:bg-white/10">Newest Arrivals</SelectItem>
+                        <SelectItem value="price_asc" className="text-white hover:bg-white/10">Price: Low to High</SelectItem>
+                        <SelectItem value="price_desc" className="text-white hover:bg-white/10">Price: High to Low</SelectItem>
+                        <SelectItem value="name_asc" className="text-white hover:bg-white/10">Name: A to Z</SelectItem>
+                        <SelectItem value="name_desc" className="text-white hover:bg-white/10">Name: Z to A</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -826,7 +874,7 @@ export default function AdminDashboard() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {products?.map((product) => (
+                        {sortedProducts?.map((product) => (
                           <TableRow
                             key={product.id}
                             className="border-white/10 hover:bg-white/5 transition-colors duration-300"
@@ -996,7 +1044,7 @@ export default function AdminDashboard() {
                                     className="px-3 py-1 border-white/20"
                                     style={{ backgroundColor: "rgba(243, 201, 152, 0.2)", color: "#F3C998" }}
                                   >
-                                    {category.product_count} products
+                                    {(products?.filter(p => (typeof p.category === 'number' ? p.category === category.id : p.category?.id === category.id || p.category_id === category.id)).length) || 0} products
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -1067,7 +1115,7 @@ export default function AdminDashboard() {
                           <div>
                             <p className="text-sm font-medium text-gray-300 mb-1">Total Products</p>
                             <h3 className="text-2xl font-bold text-white">
-                              {categories.reduce((sum, cat) => sum + (cat.product_count || 0), 0)}
+                              {products?.length || 0}
                             </h3>
                           </div>
                           <div

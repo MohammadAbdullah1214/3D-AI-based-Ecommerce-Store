@@ -25,5 +25,14 @@ export interface DashboardStats {
     total_quantity: number;
     total_sales: number;
   }>;
+  sales_by_category?: Array<{
+    name: string;
+    value: number;
+  }>;
+  revenue_by_seller?: Array<{
+    seller_id: number;
+    seller_username: string;
+    revenue: number;
+  }>;
   // Add any other fields returned by the backend as needed
 }
