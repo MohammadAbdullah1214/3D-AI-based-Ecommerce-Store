@@ -48,7 +48,6 @@ interface FiltersState {
   maxPrice: number;
   search: string;
   sortBy: string;
-  brands: string[];
   ageRanges: string[];
   deals: string[];
   reviews: string[];
@@ -73,7 +72,6 @@ export default function ProductsPage() {
     maxPrice: initialMaxPrice,
     search: initialSearch,
     sortBy: "newest",
-    brands: [],
     ageRanges: [],
     deals: [],
     reviews: [],
@@ -112,7 +110,6 @@ export default function ProductsPage() {
       maxPrice: 500,
       search: "",
       sortBy: "newest",
-      brands: [],
       ageRanges: [],
       deals: [],
       reviews: [],
@@ -131,7 +128,6 @@ export default function ProductsPage() {
     min_price: filters.minPrice,
     max_price: filters.maxPrice,
     search: filters.search || undefined,
-    brands: filters.brands,
     ageRanges: filters.ageRanges,
     deals: filters.deals,
     reviews: filters.reviews,
@@ -228,8 +224,6 @@ export default function ProductsPage() {
     { label: "$15 to $25", value: [15, 25] },
     { label: "$25 & above", value: [25, 500] },
   ]
-
-  const brands = ["ShopHub", "Premium Brands", "Eco-Friendly", "Luxury Items", "Budget Friendly"]
 
   if (productsLoading) {
     return (
@@ -480,31 +474,6 @@ export default function ProductsPage() {
                     </div>
                   </div>
 
-                  <Separator className="my-6 bg-white/20" />
-
-                  {/* Brand */}
-                  <div className="mb-8">
-                    <h3 className="font-medium mb-4 text-white text-lg">Brand</h3>
-                    <div className="space-y-3">
-                      {brands.map((brand, index) => (
-                        <div key={index} className="flex items-center">
-                          <Checkbox
-                            id={`brand-${index}`}
-                            checked={filters.brands.includes(brand)}
-                            onCheckedChange={() => handleCheckboxChange("brands", brand)}
-                            className="mr-3 border-white/30"
-                          />
-                          <Label
-                            htmlFor={`brand-${index}`}
-                            className="text-gray-300 hover:text-white transition-colors cursor-pointer"
-                          >
-                            {brand}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Add search filter to sidebar */}
                   <div className="mb-8">
                     <h3 className="font-medium mb-4 text-white text-lg">Search</h3>
@@ -586,45 +555,50 @@ export default function ProductsPage() {
                           className="bg-white/10 backdrop-blur-xl border border-white/20 overflow-hidden hover:bg-white/15 transition-all duration-500 shadow-2xl hover:shadow-[#F3C998]/10 group"
                         >
                           <div className="aspect-square relative">
+                            {/* Media type icons - top left */}
+                            <div className="absolute top-3 left-3 flex flex-col gap-2 z-20">
+                              {product.media?.some((m) => m.file_type === "image") && (
+                                <span title="2D Images" className="inline-flex items-center px-2 py-1 rounded bg-white/80 dark:bg-[#222] text-black dark:text-white text-xs font-semibold shadow">
+                                  <img src="/placeholder.svg" alt="2D" className="h-3 w-3 mr-1 inline" style={{ filter: 'invert(0.5)' }} />2D
+                                </span>
+                              )}
+                              {product.media?.some((m) => m.file_type === "model_3d" || m.file_type === "model") && (
+                                <span title="3D Model" className="inline-flex items-center px-2 py-1 rounded bg-blue-500/80 text-white text-xs font-semibold shadow">
+                                  <svg className="h-3 w-3 mr-1 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/></svg>3D
+                                </span>
+                              )}
+                              {product.media?.some((m) => m.file_type === "video") && (
+                                <span title="Video" className="inline-flex items-center px-2 py-1 rounded bg-green-500/80 text-white text-xs font-semibold shadow">
+                                  <svg className="h-3 w-3 mr-1 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video
+                                </span>
+                              )}
+                            </div>
                             <Link href={`/products/${product.id}`}>
                               <ProductImageCarousel
                                 images={carouselImages}
                                 productName={product.name}
                                 onHover={true}
                                 className="w-full h-full"
+                                allowFullscreen={false}
                               />
                             </Link>
+                            {/* Wishlist button - always visible, bottom right */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute bottom-3 right-3 p-2 rounded-full bg-white/80 dark:bg-[#222] hover:bg-[#F3C998] hover:text-black transition-all duration-300 z-30 shadow-lg"
+                              onClick={() => handleAddToWishlist(product)}
+                              disabled={isAddingWishlist}
+                              aria-label="Add to wishlist"
+                            >
+                              <Heart className="h-4 w-4 text-red-500" />
+                            </Button>
                             {/* Discount badge */}
                             {product.discount_price && product.discount_price < product.price && (
                               <Badge className="absolute top-3 left-3 bg-red-500 text-white">
                                 Save ${(product.price - product.discount_price).toFixed(2)}
                               </Badge>
                             )}
-                            {/* Media type badges */}
-                            <div className="absolute top-3 right-3 flex flex-col gap-2">
-                              {product.media?.some((m) => m.file_type === "model_3d") && (
-                                <Badge className="bg-blue-500/80 text-white flex items-center gap-1 backdrop-blur-sm">
-                                  <Cube className="h-3 w-3" />
-                                  <span className="text-xs">3D</span>
-                                </Badge>
-                              )}
-                              {product.media?.some((m) => m.file_type === "video") && (
-                                <Badge className="bg-green-500/80 text-white flex items-center gap-1 backdrop-blur-sm">
-                                  <Play className="h-3 w-3" />
-                                  <span className="text-xs">Video</span>
-                                </Badge>
-                              )}
-                            </div>
-                            {/* Wishlist button */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute bottom-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white/90 transition-all duration-300 opacity-0 group-hover:opacity-100"
-                              onClick={() => handleAddToWishlist(product)}
-                              disabled={isAddingWishlist}
-                            >
-                              <Heart className="h-4 w-4 text-red-500" />
-                            </Button>
                           </div>
                           <CardContent className="p-6">
                             <Link href={`/products/${product.id}`} className="block">

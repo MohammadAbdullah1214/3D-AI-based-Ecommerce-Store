@@ -384,6 +384,7 @@ export default function ProductDetailPage() {
                       productName={product.name}
                       onHover={true}
                       className="w-full h-full"
+                      allowFullscreen={true}
                     />
 
                     {/* Media type badges */}
@@ -405,12 +406,12 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* 3D Model Gallery */}
-                {modelUrl && (
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-[#F3C998]/10 transition-all duration-500">
-                    <h3 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
-                      <Cube className="h-5 w-5" style={{ color: "#F3C998" }} />
-                      3D Model View
-                    </h3>
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-[#F3C998]/10 transition-all duration-500">
+                  <h3 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
+                    <Cube className="h-5 w-5" style={{ color: "#F3C998" }} />
+                    3D Model View
+                  </h3>
+                  {modelUrl ? (
                     <Simple3DViewer
                       key={modelUrl}
                       modelUrl={modelUrl}
@@ -422,8 +423,13 @@ export default function ProductDetailPage() {
                       showARButton={true}
                       className="mb-4"
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-64 text-center text-gray-400">
+                      <Cube className="h-12 w-12 mb-4" style={{ color: "#F3C998" }} />
+                      <span className="text-lg">No 3D model available for this product yet.</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Video Gallery */}
                 {videos.length > 0 && (

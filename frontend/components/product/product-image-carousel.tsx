@@ -12,6 +12,7 @@ interface ProductImageCarouselProps {
   interval?: number
   showControls?: boolean
   className?: string
+  allowFullscreen?: boolean // new prop
 }
 
 export function ProductImageCarousel({
@@ -21,6 +22,7 @@ export function ProductImageCarousel({
   interval = 1500,
   showControls = true,
   className = "",
+  allowFullscreen = true, // default true
 }: ProductImageCarouselProps) {
   // Filter out invalid images BEFORE any state/logic
   const initialValidImages = (images || []).filter(
@@ -113,6 +115,15 @@ export function ProductImageCarousel({
     setOffset({ x: 0, y: 0 })
   }, [currentIndex, fullscreen])
 
+  // When exiting fullscreen, reset zoom and pan
+  useEffect(() => {
+    if (!fullscreen) {
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+      setDragging(false);
+    }
+  }, [fullscreen]);
+
   // Fullscreen styles
   const fullscreenStyles = fullscreen
     ? {
@@ -145,22 +156,28 @@ export function ProductImageCarousel({
 
   // Zoom handlers
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    setZoom((z) => Math.max(1, Math.min(5, z - e.deltaY * 0.002)))
-  }
+    if (!fullscreen) return;
+    e.preventDefault();
+    setZoom((z) => Math.max(1, Math.min(5, z - e.deltaY * 0.002)));
+  };
   // Pan handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (zoom === 1) return
-    setDragging(true)
-    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y })
-  }
+    if (!fullscreen || zoom === 1) return;
+    setDragging(true);
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+  };
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragging || zoom === 1) return
-    setOffset({ x: e.clientX - (dragStart?.x || 0), y: e.clientY - (dragStart?.y || 0) })
-  }
+    if (!fullscreen || !dragging || zoom === 1) return;
+    setOffset({ x: e.clientX - (dragStart?.x || 0), y: e.clientY - (dragStart?.y || 0) });
+  };
   const handleMouseUp = () => setDragging(false)
   // Touch handlers for mobile
   // ... (optional, can add pinch/drag support)
+
+  // Only allow toggling fullscreen if allowFullscreen is true
+  const handleToggleFullscreen = () => {
+    if (allowFullscreen) setFullscreen((f) => !f);
+  };
 
   // If no valid images, show placeholder
   if (!validImages.length) {
@@ -188,14 +205,15 @@ export function ProductImageCarousel({
 
   return (
     <div
-      className={`relative aspect-square overflow-hidden bg-gray-100 group ${className}`}
+      className={`relative overflow-hidden bg-gray-100 group ${fullscreen ? '' : 'aspect-square'} ${className}`}
       style={fullscreen ? fullscreenStyles : {}}
       ref={imageContainerRef}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={(e) => { handleMouseUp(); setIsHovered(false); }}
+      onMouseEnter={() => setIsHovered(true)}
     >
       {/* FIXED: Better loading state - don't block image if not explicitly loading */}
       {!imageLoaded[currentIndex] && currentIndex < validImages.length && (
@@ -225,19 +243,21 @@ export function ProductImageCarousel({
         />
       </div>
       {/* Fullscreen toggle button */}
-      <Button
-        size="icon"
-        variant="ghost"
-        className="absolute top-2 right-2 z-30 bg-white/80 hover:bg-white"
-        onClick={() => setFullscreen((f) => !f)}
-      >
-        {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
-      </Button>
+      {allowFullscreen && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className={`absolute top-2 right-2 z-30 ${fullscreen ? 'bg-white/90 dark:bg-[#222] text-black dark:text-white' : 'bg-white/80 dark:bg-[#222] text-black dark:text-white'} hover:bg-white dark:hover:bg-[#333]`}
+          onClick={handleToggleFullscreen}
+        >
+          {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+        </Button>
+      )}
 
       {/* Hover overlay for smooth transition effect */}
       {onHover && validImages.length > 1 && (
         <div
-          className={`absolute inset-0 transition-all duration-300 ${isHovered ? "bg-black/5" : "bg-transparent"}`}
+          className={`absolute inset-0 transition-all duration-300 ${isHovered ? "bg-black/5" : "bg-transparent"} ${fullscreen ? 'pointer-events-none' : ''}`}
         />
       )}
 
@@ -247,26 +267,30 @@ export function ProductImageCarousel({
           <Button
             variant="ghost"
             size="sm"
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/90 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20"
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-[#222] text-black dark:text-white hover:bg-[#F3C998] hover:text-black focus:bg-[#F3C998] focus:text-black shadow-lg transition-all duration-200 z-20"
+            style={{ opacity: 1 }}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               prevImage()
             }}
+            aria-label="Previous image"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/90 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20"
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 dark:bg-[#222] text-black dark:text-white hover:bg-[#F3C998] hover:text-black focus:bg-[#F3C998] focus:text-black shadow-lg transition-all duration-200 z-20"
+            style={{ opacity: 1 }}
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               nextImage()
             }}
+            aria-label="Next image"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-5 w-5" />
           </Button>
         </>
       )}
