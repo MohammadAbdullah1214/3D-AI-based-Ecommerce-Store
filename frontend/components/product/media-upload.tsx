@@ -1,29 +1,13 @@
 "use client"
 
-import {
-  FileVideo,
-  ImageIcon,
-  Loader2,
-  Cuboid,
-  Plus,
-  Trash2,
-  Upload,
-} from "lucide-react"
-import Image from "next/image"
-import { useCallback, useRef, useState } from "react"
+import type React from "react"
 
+import { FileVideo, ImageIcon, Loader2, Cuboid, Trash2 } from "lucide-react"
+import Image from "next/image"
+import { useRef, useState } from "react"
 import type { ProductMedia } from "@/app/types/product"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getMediaUrl } from "@/utils/product-utils"
 import { toast } from "@/components/ui/use-toast"
@@ -79,9 +63,9 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const renderFilePreview = (file: File) => {
     const url = URL.createObjectURL(file)
     if (file.type.startsWith("image/")) {
-        return (
-          <Image
-          src={url}
+      return (
+        <Image
+          src={url || "/placeholder.svg"}
           alt={file.name}
           width={200}
           height={200}
@@ -91,16 +75,16 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       )
     }
     if (file.type.startsWith("video/")) {
-        return (
-        <div className="w-full h-full bg-secondary rounded-lg flex items-center justify-center">
-          <FileVideo className="w-10 h-10 text-muted-foreground" />
-          </div>
-        )
+      return (
+        <div className="w-full h-full bg-white/10 rounded-lg flex items-center justify-center">
+          <FileVideo className="w-10 h-10 text-[#F3C998]" />
+        </div>
+      )
     }
     // Fallback for 3D models or other file types
     return (
-      <div className="w-full h-full bg-secondary rounded-lg flex items-center justify-center">
-        <Cuboid className="w-10 h-10 text-muted-foreground" />
+      <div className="w-full h-full bg-white/10 rounded-lg flex items-center justify-center">
+        <Cuboid className="w-10 h-10 text-[#F3C998]" />
       </div>
     )
   }
@@ -108,76 +92,87 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const images = newFiles.filter((f) => f.type.startsWith("image/"))
   const videos = newFiles.filter((f) => f.type.startsWith("video/"))
   const models = newFiles.filter(
-    (f) =>
-      f.type.includes("gltf") ||
-      f.type.includes("glb") ||
-      f.name.endsWith(".glb") ||
-      f.name.endsWith(".gltf"),
+    (f) => f.type.includes("gltf") || f.type.includes("glb") || f.name.endsWith(".glb") || f.name.endsWith(".gltf"),
   )
 
   return (
-    <Card>
+    <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
       <CardHeader>
-        <CardTitle>Media Manager</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-white text-xl">Media Manager</CardTitle>
+        <CardDescription className="text-gray-300">
           Add or remove images, videos, and 3D models for your product.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="existing">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="existing">
+          <TabsList className="grid w-full grid-cols-4 bg-white/10 backdrop-blur-xl border border-white/20">
+            <TabsTrigger
+              value="existing"
+              className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D] hover:bg-white/10 transition-all duration-300"
+            >
               Existing ({existingMedia.length})
             </TabsTrigger>
-            <TabsTrigger value="images">Images ({images.length})</TabsTrigger>
-            <TabsTrigger value="videos">Videos ({videos.length})</TabsTrigger>
-            <TabsTrigger value="models">3D Models ({models.length})</TabsTrigger>
+            <TabsTrigger
+              value="images"
+              className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D] hover:bg-white/10 transition-all duration-300"
+            >
+              Images ({images.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="videos"
+              className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D] hover:bg-white/10 transition-all duration-300"
+            >
+              Videos ({videos.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="models"
+              className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D] hover:bg-white/10 transition-all duration-300"
+            >
+              3D Models ({models.length})
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="existing" className="mt-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {existingMedia.map((media) => (
+              {existingMedia.map((media) => (
                 <div key={media.id} className="relative group">
                   {media.file_type.startsWith("image") ? (
                     <Image
-                      src={getMediaUrl(media)}
+                      src={getMediaUrl(media) || "/placeholder.svg"}
                       alt={`Product media ${media.id}`}
                       width={200}
                       height={200}
-                      className="rounded-lg object-cover aspect-square"
+                      className="rounded-lg object-cover aspect-square border border-white/20"
                     />
                   ) : media.file_type.startsWith("video") ? (
-                    <div className="w-full h-full bg-secondary rounded-lg flex items-center justify-center">
-                      <FileVideo className="w-10 h-10 text-muted-foreground" />
-          </div>
-        ) : (
-                    <div className="w-full h-full bg-secondary rounded-lg flex items-center justify-center">
-                      <Cuboid className="w-10 h-10 text-muted-foreground" />
-      </div>
+                    <div className="w-full h-full bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
+                      <FileVideo className="w-10 h-10 text-[#F3C998]" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
+                      <Cuboid className="w-10 h-10 text-[#F3C998]" />
+                    </div>
                   )}
                   <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       size="icon"
                       variant="destructive"
-                      className="h-7 w-7"
+                      className="h-7 w-7 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 hover:text-red-200"
                       onClick={() => handleRemoveExistingMedia(media.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                       <span className="sr-only">Delete</span>
                     </Button>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center p-1 truncate">
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs text-center p-1 truncate rounded-b-lg">
                     {media.file_type}
                   </div>
                 </div>
               ))}
               {existingMedia.length === 0 && (
-                <p className="text-sm text-muted-foreground col-span-full">
-                  No existing media found.
-                </p>
+                <p className="text-sm text-gray-400 col-span-full text-center py-8">No existing media found.</p>
               )}
             </div>
           </TabsContent>
-
           {["images", "videos", "models"].map((tab) => {
             let files, Icon, inputRef, accept
             if (tab === "images") {
@@ -196,7 +191,6 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               inputRef = modelInputRef
               accept = ".glb,.gltf"
             }
-
             return (
               <TabsContent key={tab} value={tab} className="mt-4">
                 <input
@@ -215,24 +209,24 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                         <Button
                           size="icon"
                           variant="destructive"
-                          className="h-7 w-7"
+                          className="h-7 w-7 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 hover:text-red-200"
                           onClick={() => handleRemoveNewFile(file)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-          </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center p-1 truncate">
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs text-center p-1 truncate rounded-b-lg">
                         {file.name}
-      </div>
-    </div>
+                      </div>
+                    </div>
                   ))}
                   <button
                     type="button"
                     onClick={() => inputRef.current?.click()}
-                    className="flex flex-col items-center justify-center w-full aspect-square border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                    className="flex flex-col items-center justify-center w-full aspect-square border-2 border-dashed border-[#F3C998]/30 rounded-lg text-[#F3C998] hover:bg-white/10 hover:border-[#F3C998]/50 transition-all duration-300 bg-white/5"
                   >
                     <Icon className="w-10 h-10 mb-2" />
-                    <span>Add {tab}</span>
+                    <span className="text-sm font-medium">Add {tab}</span>
                   </button>
                 </div>
               </TabsContent>
@@ -241,10 +235,10 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         </Tabs>
       </CardContent>
       {newFiles.length > 0 && (
-        <CardFooter className="flex justify-end gap-2">
+        <CardFooter className="flex justify-end gap-2 border-t border-white/20 pt-4">
           {isUploading && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <div className="flex items-center text-sm text-gray-300">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#F3C998]" />
               <span>Uploading...</span>
             </div>
           )}
@@ -255,6 +249,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
               onFilesChange([])
             }}
             disabled={isUploading}
+            className="border-[#F3C998]/50 text-[#F3C998] hover:bg-[#F3C998]/10 hover:border-[#F3C998] transition-all duration-300 backdrop-blur-sm bg-transparent"
           >
             Clear new files
           </Button>

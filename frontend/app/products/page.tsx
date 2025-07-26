@@ -1,7 +1,9 @@
 "use client"
 
+import type React from "react"
+
 import { CardFooter } from "@/components/ui/card"
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { useGetProductsQuery, useGetCategoriesQuery } from "@/store/services/productApi"
 import { useAddToCartMutation } from "@/store/services/cartApi"
@@ -11,16 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import {
-  Star,
-  ChevronDown,
-  Filter,
-  SlidersHorizontal,
-  ShoppingCart,
-  CuboidIcon as Cube,
-  Play,
-  Heart,
-} from "lucide-react"
+import { Star, ChevronDown, Filter, SlidersHorizontal, ShoppingCart, Heart } from "lucide-react"
 import Link from "next/link"
 import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
@@ -33,24 +26,18 @@ import { useAddItemMutation } from "@/store/services/wishlistApi"
 import type { Product } from "@/app/types"
 import { useAuth } from "@/hooks/useAuth"
 import { useRef } from "react"
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem
-} from "@/components/ui/select"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 // Define the filter state type
 interface FiltersState {
-  category: string;
-  minPrice: number;
-  maxPrice: number;
-  search: string;
-  sortBy: string;
-  ageRanges: string[];
-  deals: string[];
-  reviews: string[];
+  category: string
+  minPrice: number
+  maxPrice: number
+  search: string
+  sortBy: string
+  ageRanges: string[]
+  deals: string[]
+  reviews: string[]
 }
 
 export default function ProductsPage() {
@@ -76,6 +63,7 @@ export default function ProductsPage() {
     deals: [],
     reviews: [],
   })
+
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // Debounced search
@@ -118,7 +106,7 @@ export default function ProductsPage() {
 
   const [showMobileFilters, setShowMobileFilters] = useState(false)
 
-  // Update useGetProductsQuery to use all filters
+  // Simplified API query - only use supported parameters
   const {
     data: products,
     isLoading: productsLoading,
@@ -128,16 +116,100 @@ export default function ProductsPage() {
     min_price: filters.minPrice,
     max_price: filters.maxPrice,
     search: filters.search || undefined,
-    ageRanges: filters.ageRanges,
-    deals: filters.deals,
-    reviews: filters.reviews,
-    sortBy: filters.sortBy,
   })
 
   const { data: categories, isLoading: categoriesLoading } = useGetCategoriesQuery()
-
   const [addToCart] = useAddToCartMutation()
   const [addWishlistItem, { isLoading: isAddingWishlist }] = useAddItemMutation()
+
+  // Enhanced client-side filtering and sorting with useMemo for performance
+  const filteredAndSortedProducts = useMemo(() => {
+    if (!products) return []
+
+    // Start with all products
+    let filtered = [...products]
+
+    // Apply client-side filters as fallback
+    if (filters.category) {
+      filtered = filtered.filter((product) => {
+        const categoryName =
+          product.category_name?.toLowerCase() ||
+          product.category?.name?.toLowerCase() ||
+          product.category_details?.name?.toLowerCase() ||
+          ""
+        const categoryId = product.category_id?.toString() || product.category?.id?.toString() || ""
+
+        return categoryName.includes(filters.category.toLowerCase()) || categoryId === filters.category
+      })
+    }
+
+    // Price filter
+    filtered = filtered.filter((product) => {
+      const price = Number(getProductPrice(product)) || 0
+      return price >= filters.minPrice && price <= filters.maxPrice
+    })
+
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase()
+      filtered = filtered.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm) ||
+          product.description?.toLowerCase().includes(searchTerm) ||
+          product.category_name?.toLowerCase().includes(searchTerm),
+      )
+    }
+
+    // Reviews filter (if product has reviews)
+    if (filters.reviews.length > 0) {
+      filtered = filtered.filter((product) => {
+        const avgRating = Number(product.average_rating) || 0
+        return filters.reviews.some((rating) => {
+          const numRating = Number.parseInt(rating)
+          return avgRating >= numRating
+        })
+      })
+    }
+
+    // Age ranges filter (if applicable)
+    if (filters.ageRanges.length > 0) {
+      // This would need to be implemented based on your product data structure
+      // For now, we'll skip this filter
+    }
+
+    // Deals filter
+    if (filters.deals.length > 0) {
+      if (filters.deals.includes("today")) {
+        filtered = filtered.filter((product) => {
+          const price = Number(product.price) || 0
+          const discountPrice = Number(product.discount_price) || 0
+          return discountPrice > 0 && discountPrice < price
+        })
+      }
+    }
+
+    // Sort products
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case "newest":
+          return new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
+        case "price_asc":
+          return (Number(getProductPrice(a)) || 0) - (Number(getProductPrice(b)) || 0)
+        case "price_desc":
+          return (Number(getProductPrice(b)) || 0) - (Number(getProductPrice(a)) || 0)
+        case "name_asc":
+          return a.name.localeCompare(b.name)
+        case "name_desc":
+          return b.name.localeCompare(a.name)
+        case "popular":
+          return (Number(b.average_rating) || 0) - (Number(a.average_rating) || 0)
+        default:
+          return 0
+      }
+    })
+
+    return filtered
+  }, [products, filters])
 
   const handleQuickAddToCart = async (product: Product) => {
     if (!isAuthenticated) {
@@ -159,6 +231,7 @@ export default function ProductsPage() {
         product_id: Number(product.id),
         quantity: 1,
       }).unwrap()
+
       toast({
         title: "Added to cart",
         description: "Product has been added to your cart.",
@@ -182,10 +255,12 @@ export default function ProductsPage() {
       })
       return
     }
+
     if (!isAuthenticated) {
       router.push("/login")
       return
     }
+
     if (user && product && (user.id === product.seller_id || user.username === product.seller_username)) {
       toast({
         title: "Not allowed",
@@ -194,6 +269,7 @@ export default function ProductsPage() {
       })
       return
     }
+
     try {
       await addWishlistItem({ product_id: Number(product.id) }).unwrap()
       toast({
@@ -236,16 +312,6 @@ export default function ProductsPage() {
     )
   }
 
-  const sortedProducts = [...(products || [])].sort((a, b) => {
-    if (filters.sortBy === "newest") return new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime();
-    if (filters.sortBy === "price_asc") return Number(a.price) - Number(b.price);
-    if (filters.sortBy === "price_desc") return Number(b.price) - Number(a.price);
-    if (filters.sortBy === "name_asc") return a.name.localeCompare(b.name);
-    if (filters.sortBy === "name_desc") return b.name.localeCompare(a.name);
-    // Optionally, add 'popular' sort if you have a popularity metric
-    return 0;
-  });
-
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#1D212D] via-[#2A2F3A] to-[#1D212D] relative">
       {/* Full screen background pattern */}
@@ -253,8 +319,8 @@ export default function ProductsPage() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                           radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                            radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
           }}
         ></div>
       </div>
@@ -272,7 +338,8 @@ export default function ProductsPage() {
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4">
                 {filters.search ? (
                   <>
-                    <span style={{ color: "#F3C998" }}>{products?.length || 0}</span> results for "{filters.search}"
+                    <span style={{ color: "#F3C998" }}>{filteredAndSortedProducts?.length || 0}</span> results for "
+                    {filters.search}"
                   </>
                 ) : (
                   <>
@@ -302,28 +369,51 @@ export default function ProductsPage() {
               {/* Filters sidebar */}
               <aside className={`w-full lg:w-80 shrink-0 ${showMobileFilters ? "block" : "hidden lg:block"}`}>
                 <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
-                  {/* Customer Reviews */}
+                  {/* Search filter */}
                   <div className="mb-8">
-                    <h3 className="font-medium mb-4 text-white text-lg">Customer Reviews</h3>
+                    <h3 className="font-medium mb-4 text-white text-lg">Search</h3>
+                    <input
+                      type="text"
+                      defaultValue={filters.search}
+                      onChange={handleSearchChange}
+                      placeholder="Search products..."
+                      className="w-full px-3 py-2 rounded-lg bg-white/10 text-white border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#F3C998] placeholder:text-gray-400"
+                    />
+                  </div>
+
+                  <Separator className="my-6 bg-white/20" />
+
+                  {/* Categories */}
+                  <div className="mb-8">
+                    <h3 className="font-medium mb-4 text-white text-lg">Categories</h3>
                     <div className="space-y-3">
-                      {[5, 4, 3, 2, 1].map((rating) => (
-                        <div key={rating} className="flex items-center">
+                      <div className="flex items-center">
+                        <Checkbox
+                          id="all-categories"
+                          checked={filters.category === ""}
+                          onCheckedChange={() => handleSingleFilterChange("category", "")}
+                          className="mr-3 border-white/30"
+                        />
+                        <Label
+                          htmlFor="all-categories"
+                          className="text-gray-300 hover:text-white transition-colors cursor-pointer"
+                        >
+                          All Categories
+                        </Label>
+                      </div>
+                      {categories?.map((category) => (
+                        <div key={category.id} className="flex items-center">
                           <Checkbox
-                            id={`rating-${rating}`}
-                            checked={filters.reviews.includes(rating.toString())}
-                            onCheckedChange={() => handleCheckboxChange("reviews", rating.toString())}
+                            id={`category-${category.id}`}
+                            checked={filters.category === category.name}
+                            onCheckedChange={() => handleSingleFilterChange("category", category.name)}
                             className="mr-3 border-white/30"
                           />
-                          <Label htmlFor={`rating-${rating}`} className="flex items-center cursor-pointer">
-                            {Array(5)
-                              .fill(0)
-                              .map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-4 w-4 ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-500"}`}
-                                />
-                              ))}
-                            <span className="ml-2 text-sm text-gray-300">& Up</span>
+                          <Label
+                            htmlFor={`category-${category.id}`}
+                            className="text-gray-300 hover:text-white transition-colors cursor-pointer"
+                          >
+                            {category.name}
                           </Label>
                         </div>
                       ))}
@@ -375,6 +465,38 @@ export default function ProductsPage() {
 
                   <Separator className="my-6 bg-white/20" />
 
+                  {/* Customer Reviews */}
+                  <div className="mb-8">
+                    <h3 className="font-medium mb-4 text-white text-lg">Customer Reviews</h3>
+                    <div className="space-y-3">
+                      {[5, 4, 3, 2, 1].map((rating) => (
+                        <div key={rating} className="flex items-center">
+                          <Checkbox
+                            id={`rating-${rating}`}
+                            checked={filters.reviews.includes(rating.toString())}
+                            onCheckedChange={() => handleCheckboxChange("reviews", rating.toString())}
+                            className="mr-3 border-white/30"
+                          />
+                          <Label htmlFor={`rating-${rating}`} className="flex items-center cursor-pointer">
+                            {Array(5)
+                              .fill(0)
+                              .map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${
+                                    i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-500"
+                                  }`}
+                                />
+                              ))}
+                            <span className="ml-2 text-sm text-gray-300">& Up</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator className="my-6 bg-white/20" />
+
                   {/* Deals & Discounts */}
                   <div className="mb-8">
                     <h3 className="font-medium mb-4 text-white text-lg">Deals & Discounts</h3>
@@ -383,14 +505,14 @@ export default function ProductsPage() {
                         <Checkbox
                           id="all-discounts"
                           checked={filters.deals.length === 0}
-                          onCheckedChange={() => handleCheckboxChange("deals", "")}
+                          onCheckedChange={() => setFilters((prev) => ({ ...prev, deals: [] }))}
                           className="mr-3 border-white/30"
                         />
                         <Label
                           htmlFor="all-discounts"
                           className="text-gray-300 hover:text-white transition-colors cursor-pointer"
                         >
-                          All Discounts
+                          All Products
                         </Label>
                       </div>
                       <div className="flex items-center">
@@ -404,48 +526,9 @@ export default function ProductsPage() {
                           htmlFor="today-deals"
                           className="text-gray-300 hover:text-white transition-colors cursor-pointer"
                         >
-                          Today's Deals
+                          On Sale Only
                         </Label>
                       </div>
-                    </div>
-                  </div>
-
-                  <Separator className="my-6 bg-white/20" />
-
-                  {/* Categories */}
-                  <div className="mb-8">
-                    <h3 className="font-medium mb-4 text-white text-lg">Categories</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <Checkbox
-                          id="all-categories"
-                          checked={filters.category === ""}
-                          onCheckedChange={() => handleSingleFilterChange("category", "")}
-                          className="mr-3 border-white/30"
-                        />
-                        <Label
-                          htmlFor="all-categories"
-                          className="text-gray-300 hover:text-white transition-colors cursor-pointer"
-                        >
-                          All Categories
-                        </Label>
-                      </div>
-                      {categories?.map((category) => (
-                        <div key={category.id} className="flex items-center">
-                          <Checkbox
-                            id={`category-${category.id}`}
-                            checked={filters.category === category.id.toString()}
-                            onCheckedChange={() => handleSingleFilterChange("category", category.id.toString())}
-                            className="mr-3 border-white/30"
-                          />
-                          <Label
-                            htmlFor={`category-${category.id}`}
-                            className="text-gray-300 hover:text-white transition-colors cursor-pointer"
-                          >
-                            {category.name}
-                          </Label>
-                        </div>
-                      ))}
                     </div>
                   </div>
 
@@ -474,22 +557,10 @@ export default function ProductsPage() {
                     </div>
                   </div>
 
-                  {/* Add search filter to sidebar */}
-                  <div className="mb-8">
-                    <h3 className="font-medium mb-4 text-white text-lg">Search</h3>
-                    <input
-                      type="text"
-                      value={filters.search}
-                      onChange={handleSearchChange}
-                      placeholder="Search products..."
-                      className="w-full px-3 py-2 rounded-lg bg-white/10 dark:bg-gray-800 text-white border border-white/20 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-
-                  {/* Add Reset Filters button below all filters */}
+                  {/* Reset Filters button */}
                   <div className="flex flex-col space-y-2 pt-4">
                     <Button
-                      className="bg-primary text-primary-foreground hover:bg-primary/80"
+                      className="bg-[#F3C998] text-[#1D212D] hover:bg-[#E6B87D] font-semibold"
                       onClick={handleResetFilters}
                     >
                       Reset Filters
@@ -504,19 +575,33 @@ export default function ProductsPage() {
                 <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 mb-8 flex justify-between items-center shadow-2xl">
                   <div className="flex items-center">
                     <SlidersHorizontal className="h-5 w-5 mr-3" style={{ color: "#F3C998" }} />
-                    <span className="text-base font-medium text-white">Sort by:</span>
+                    <span className="text-base font-medium text-white">
+                      Sort by: ({filteredAndSortedProducts.length} products)
+                    </span>
                   </div>
-                  <Select value={filters.sortBy} onValueChange={value => setFilters({ ...filters, sortBy: value })}>
-                    <SelectTrigger className="w-56 bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200" style={{ colorScheme: 'dark' }}>
+                  <Select value={filters.sortBy} onValueChange={(value) => setFilters({ ...filters, sortBy: value })}>
+                    <SelectTrigger className="w-56 bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
                       <SelectValue placeholder="Sort by..." />
                     </SelectTrigger>
                     <SelectContent className="bg-[#2A2F3A] border-white/20">
-                      <SelectItem value="newest" className="text-white hover:bg-white/10">Newest Arrivals</SelectItem>
-                      <SelectItem value="price_asc" className="text-white hover:bg-white/10">Price: Low to High</SelectItem>
-                      <SelectItem value="price_desc" className="text-white hover:bg-white/10">Price: High to Low</SelectItem>
-                      <SelectItem value="popular" className="text-white hover:bg-white/10">Most Popular</SelectItem>
-                      <SelectItem value="name_asc" className="text-white hover:bg-white/10">Name: A to Z</SelectItem>
-                      <SelectItem value="name_desc" className="text-white hover:bg-white/10">Name: Z to A</SelectItem>
+                      <SelectItem value="newest" className="text-white hover:bg-white/10">
+                        Newest Arrivals
+                      </SelectItem>
+                      <SelectItem value="price_asc" className="text-white hover:bg-white/10">
+                        Price: Low to High
+                      </SelectItem>
+                      <SelectItem value="price_desc" className="text-white hover:bg-white/10">
+                        Price: High to Low
+                      </SelectItem>
+                      <SelectItem value="popular" className="text-white hover:bg-white/10">
+                        Most Popular
+                      </SelectItem>
+                      <SelectItem value="name_asc" className="text-white hover:bg-white/10">
+                        Name: A to Z
+                      </SelectItem>
+                      <SelectItem value="name_desc" className="text-white hover:bg-white/10">
+                        Name: Z to A
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -531,23 +616,31 @@ export default function ProductsPage() {
                       </p>
                     </div>
                   </div>
-                ) : products && products.length > 0 ? (
+                ) : filteredAndSortedProducts && filteredAndSortedProducts.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {sortedProducts.map((product) => {
+                    {filteredAndSortedProducts.map((product) => {
                       // Prepare carouselImages outside JSX
-                      const imageUrls = product.image_urls || [];
-                      const imageIds = product.image_ids || [];
-                      const carouselImages = imageUrls.length > 0
-                        ? imageUrls
-                            .map((url, idx) => ({
-                              id: (imageIds && imageIds[idx]) ?? idx,
-                              url: url || `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name)}`,
-                            }))
-                            .filter(img => typeof img.url === 'string' && img.url.trim() && !img.url.includes('undefined'))
-                        : [{
-                            id: 0,
-                            url: `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name)}`,
-                          }];
+                      const imageUrls = product.image_urls || []
+                      const imageIds = product.image_ids || []
+                      const carouselImages =
+                        imageUrls.length > 0
+                          ? imageUrls
+                              .map((url, idx) => ({
+                                id: (imageIds && imageIds[idx]) ?? idx,
+                                url:
+                                  url ||
+                                  `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name)}`,
+                              }))
+                              .filter(
+                                (img) =>
+                                  typeof img.url === "string" && img.url.trim() && !img.url.includes("undefined"),
+                              )
+                          : [
+                              {
+                                id: 0,
+                                url: `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product.name)}`,
+                              },
+                            ]
 
                       return (
                         <Card
@@ -558,21 +651,55 @@ export default function ProductsPage() {
                             {/* Media type icons - top left */}
                             <div className="absolute top-3 left-3 flex flex-col gap-2 z-20">
                               {product.media?.some((m) => m.file_type === "image") && (
-                                <span title="2D Images" className="inline-flex items-center px-2 py-1 rounded bg-white/80 dark:bg-[#222] text-black dark:text-white text-xs font-semibold shadow">
-                                  <img src="/placeholder.svg" alt="2D" className="h-3 w-3 mr-1 inline" style={{ filter: 'invert(0.5)' }} />2D
+                                <span
+                                  title="2D Images"
+                                  className="inline-flex items-center px-2 py-1 rounded bg-white/80 dark:bg-[#222] text-black dark:text-white text-xs font-semibold shadow"
+                                >
+                                  <img
+                                    src="/placeholder.svg"
+                                    alt="2D"
+                                    className="h-3 w-3 mr-1 inline"
+                                    style={{ filter: "invert(0.5)" }}
+                                  />
+                                  2D
                                 </span>
                               )}
                               {product.media?.some((m) => m.file_type === "model_3d" || m.file_type === "model") && (
-                                <span title="3D Model" className="inline-flex items-center px-2 py-1 rounded bg-blue-500/80 text-white text-xs font-semibold shadow">
-                                  <svg className="h-3 w-3 mr-1 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z"/></svg>3D
+                                <span
+                                  title="3D Model"
+                                  className="inline-flex items-center px-2 py-1 rounded bg-blue-500/80 text-white text-xs font-semibold shadow"
+                                >
+                                  <svg
+                                    className="h-3 w-3 mr-1 inline"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z" />
+                                  </svg>
+                                  3D
                                 </span>
                               )}
                               {product.media?.some((m) => m.file_type === "video") && (
-                                <span title="Video" className="inline-flex items-center px-2 py-1 rounded bg-green-500/80 text-white text-xs font-semibold shadow">
-                                  <svg className="h-3 w-3 mr-1 inline" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video
+                                <span
+                                  title="Video"
+                                  className="inline-flex items-center px-2 py-1 rounded bg-green-500/80 text-white text-xs font-semibold shadow"
+                                >
+                                  <svg
+                                    className="h-3 w-3 mr-1 inline"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                  </svg>
+                                  Video
                                 </span>
                               )}
                             </div>
+
                             <Link href={`/products/${product.id}`}>
                               <ProductImageCarousel
                                 images={carouselImages}
@@ -582,6 +709,7 @@ export default function ProductsPage() {
                                 allowFullscreen={false}
                               />
                             </Link>
+
                             {/* Wishlist button - always visible, bottom right */}
                             <Button
                               variant="ghost"
@@ -593,13 +721,15 @@ export default function ProductsPage() {
                             >
                               <Heart className="h-4 w-4 text-red-500" />
                             </Button>
+
                             {/* Discount badge */}
                             {product.discount_price && product.discount_price < product.price && (
-                              <Badge className="absolute top-3 left-3 bg-red-500 text-white">
+                              <Badge className="absolute top-3 right-3 bg-red-500 text-white">
                                 Save ${(product.price - product.discount_price).toFixed(2)}
                               </Badge>
                             )}
                           </div>
+
                           <CardContent className="p-6">
                             <Link href={`/products/${product.id}`} className="block">
                               <h3 className="font-medium text-base line-clamp-2 mb-2 text-white hover:text-[#F3C998] transition-colors">
@@ -624,7 +754,7 @@ export default function ProductsPage() {
                             <div className="mt-3">
                               <div className="flex items-baseline">
                                 <span className="text-xl font-bold text-white">
-                                  ${Number(product.price).toFixed(2)}
+                                  ${getProductPrice(product)?.toFixed(2)}
                                 </span>
                                 {product.discount_price && product.discount_price < product.price && (
                                   <span className="ml-3 text-base text-gray-500 line-through">
@@ -641,6 +771,7 @@ export default function ProductsPage() {
                               </div>
                             </div>
                           </CardContent>
+
                           <CardFooter className="p-6 pt-0">
                             <Button
                               size="lg"
@@ -654,7 +785,7 @@ export default function ProductsPage() {
                             </Button>
                           </CardFooter>
                         </Card>
-                      );
+                      )
                     })}
                   </div>
                 ) : (
@@ -662,6 +793,12 @@ export default function ProductsPage() {
                     <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-12 shadow-2xl max-w-md mx-auto">
                       <h3 className="text-2xl font-medium mb-6 text-white">No products found</h3>
                       <p className="text-gray-300 mb-8">Try adjusting your filters or search terms.</p>
+                      <Button
+                        className="bg-[#F3C998] text-[#1D212D] hover:bg-[#E6B87D] font-semibold"
+                        onClick={handleResetFilters}
+                      >
+                        Reset Filters
+                      </Button>
                     </div>
                   </div>
                 )}

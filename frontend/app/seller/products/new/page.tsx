@@ -38,6 +38,7 @@ import {
 import Link from "next/link"
 import { ProductGallery } from "@/components/product/product-gallery"
 import Simple3DViewer from "@/components/product/simple-3d-viewer"
+import VariantManager from "@/components/product/variant-manager"
 import { motion } from "framer-motion"
 
 const formSchema = z
@@ -54,6 +55,7 @@ const formSchema = z
     length: z.coerce.number().nonnegative().optional().nullable(),
     width: z.coerce.number().nonnegative().optional().nullable(),
     height: z.coerce.number().nonnegative().optional().nullable(),
+    variants: z.array(z.any()).optional().default([]),
   })
   .superRefine((data, ctx) => {
     if (data.discount_price !== null && data.discount_price !== undefined && data.discount_price >= data.price) {
@@ -78,6 +80,7 @@ export default function NewProductPage() {
     videos: [],
     models: [],
   })
+  const [variants, setVariants] = useState<any[]>([])
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -101,6 +104,7 @@ export default function NewProductPage() {
       length: null,
       width: null,
       height: null,
+      variants: [],
     },
   })
 
@@ -152,6 +156,7 @@ export default function NewProductPage() {
 
       console.log("Form submission started with values:", values)
       console.log("Selected files:", selectedFiles)
+      console.log("Variants:", variants)
 
       const formData = new FormData()
       formData.append("name", values.name)
@@ -165,6 +170,11 @@ export default function NewProductPage() {
       // Add status and is_active to FormData
       formData.append("status", values.status)
       formData.append("is_active", String(values.is_active))
+
+      // Add variants if any
+      if (variants && variants.length > 0) {
+        formData.append("variants", JSON.stringify(variants))
+      }
 
       // Append all files to the 'images' field, as required by backend
       selectedFiles.images.forEach((file) => {
@@ -185,7 +195,7 @@ export default function NewProductPage() {
       const newProduct = await createProduct(formData).unwrap()
       toast({
         title: "Product Created!",
-        description: `"${newProduct.name}" has been created successfully with ${selectedFiles.images.length + selectedFiles.videos.length + selectedFiles.models.length} media files.`,
+        description: `"${newProduct.name}" has been created successfully with ${selectedFiles.images.length + selectedFiles.videos.length + selectedFiles.models.length} media files${variants.length > 0 ? ` and ${variants.length} variant(s)` : ''}.`,
       })
       router.push("/dashboard?tab=products")
     } catch (error) {
@@ -950,6 +960,17 @@ export default function NewProductPage() {
                           </div>
                         </CardContent>
                       </Card>
+
+                      {/* Variant Manager */}
+                      <VariantManager
+                        productId={0} // Will be set after product creation
+                        variants={variants}
+                        onVariantsChange={(newVariants) => {
+                          setVariants(newVariants)
+                          form.setValue("variants", newVariants)
+                        }}
+                        isEditing={false}
+                      />
                     </motion.div>
                   </div>
 

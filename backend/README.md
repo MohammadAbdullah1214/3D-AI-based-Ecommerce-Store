@@ -67,7 +67,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 Create and activate a virtual environment:
 
 Remove-Item -Recurse -Force venv 
-python3.11 -m venv venv  
+python -m venv venv  
 venv\Scripts\activate  # For Windows
 source venv/bin/activate  # For macOS/Linux  
   

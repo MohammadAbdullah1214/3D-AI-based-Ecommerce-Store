@@ -24,15 +24,14 @@ import {
 import { useGetProductMediaQuery } from "@/store/services/mediaApi"
 import { useGetProductReviewsQuery } from "@/store/services/reviewApi"
 import { MediaUpload } from "@/components/product/media-upload"
-import { ThreeDGenerationPanel } from "@/components/product/3d-generation-panel"
+import ThreeDGenerationPanel from "@/components/product/3d-generation-panel"
+import VariantManager from "@/components/product/variant-manager"
 import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
-import { ArrowLeft, Loader2, CuboidIcon, Play, Star } from "lucide-react"
+import { ArrowLeft, Loader2, Star } from "lucide-react"
 import Link from "next/link"
-import { getProductStock } from "@/utils/product-utils"
+import { getProductStock,getMediaUrl } from "@/utils/product-utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ProductGallery } from "@/components/product/product-gallery"
-import Simple3DViewer from "@/components/product/simple-3d-viewer"
 import { motion } from "framer-motion"
 
 // Define the form schema with Zod
@@ -59,6 +58,7 @@ const formSchema = z
       )
       .optional()
       .default([]),
+    variants: z.array(z.any()).optional().default([]),
   })
   .superRefine((data, ctx) => {
     if (data.discount_price !== null && data.discount_price !== undefined && data.discount_price >= data.price) {
@@ -80,6 +80,7 @@ export default function EditProductPage() {
   // State
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPollingStatus, setIsPollingStatus] = useState(false)
+  const [variants, setVariants] = useState<any[]>([])
 
   // API Hooks
   const {
@@ -95,10 +96,14 @@ export default function EditProductPage() {
   const { data: categories, isLoading: categoriesLoading } = useGetCategoriesQuery()
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation()
   const [uploadProductFiles, { isLoading: isUploading }] = useUploadProductFilesMutation()
+
   const { data: productMedia = [], isLoading: isLoadingMedia } = useGetProductMediaQuery(productId, {
     skip: !productId,
   })
-
+  // 3D Generation state
+  const [selectedImages, setSelectedImages] = useState<Record<string, string>>({})
+  const [clothingType, setClothingType] = useState("shirt")
+  const [detailLevel, setDetailLevel] = useState("medium")
   // Reviews
   const { data: reviews = [] } = useGetProductReviewsQuery(productId, {
     skip: !productId,
@@ -129,6 +134,7 @@ export default function EditProductPage() {
       width: null,
       height: null,
       mediaFiles: [],
+      variants: [],
     },
   })
 
@@ -149,6 +155,7 @@ export default function EditProductPage() {
         width: product.width ?? null,
         height: product.height ?? null,
         mediaFiles: [],
+        variants: product.variants || [],
       })
     }
   }, [product, form])
@@ -181,9 +188,11 @@ export default function EditProductPage() {
     setIsSubmitting(true)
     try {
       // Step 1: Update product's text/numeric data
-      const { mediaFiles, category, ...productDataRest } = values
+      const { mediaFiles, category, variants, ...productDataRest } = values
+
       console.log("Form submission - mediaFiles:", mediaFiles)
       console.log("Form submission - productData:", productDataRest)
+      console.log("Form submission - variants:", variants)
 
       await updateProduct({
         id: productId,
@@ -193,7 +202,15 @@ export default function EditProductPage() {
 
       toast({ title: "Product details saved." })
 
-      // Step 2: Upload new media files if any
+      // Step 2: Handle variants if any
+      if (variants && variants.length > 0) {
+        console.log("Processing variants:", variants)
+        // Here you would typically send variants to the backend
+        // For now, we'll just log them
+        toast({ title: "Variants updated.", description: `${variants.length} variant(s) processed.` })
+      }
+
+      // Step 3: Upload new media files if any
       if (mediaFiles && mediaFiles.length > 0) {
         console.log("Uploading media files:", mediaFiles)
         toast({ title: "Uploading new media...", description: `Uploading ${mediaFiles.length} file(s).` })
@@ -223,6 +240,7 @@ export default function EditProductPage() {
 
         // Clear the media files from the form after successful upload
         form.setValue("mediaFiles", [])
+
         // Clear the MediaUpload component's state
         if ((window as any).clearMediaUploadFiles) {
           ;(window as any).clearMediaUploadFiles()
@@ -235,6 +253,7 @@ export default function EditProductPage() {
         title: "Product Updated",
         description: "Your product has been successfully updated.",
       })
+
       router.push("/dashboard?tab=products")
     } catch (error) {
       console.error("Error updating product:", error)
@@ -258,6 +277,7 @@ export default function EditProductPage() {
           angleMapping,
           clothingType,
         }).unwrap()
+
         toast({
           title: "3D Model Generation Started",
           description: "Your model is being created. You can monitor the progress here.",
@@ -293,6 +313,25 @@ export default function EditProductPage() {
     }
   }, [productId, cancelGeneration])
 
+  // Handle image selection for 3D generation
+  const handleImageSelect = useCallback((angle: string, imageId: string) => {
+    setSelectedImages(prev => ({
+      ...prev,
+      [angle]: imageId
+    }))
+  }, [])
+
+  // Handle 3D generation
+  const handleGenerate3D = useCallback(() => {
+    // Convert selectedImages to angleMapping format expected by API
+    const angleMapping: Record<string, number> = {}
+    Object.entries(selectedImages).forEach(([angle, imageId]) => {
+      angleMapping[angle] = parseInt(imageId)
+    })
+
+    handleGenerationStart(detailLevel, angleMapping, clothingType)
+  }, [selectedImages, detailLevel, clothingType, handleGenerationStart])
+
   // Separate media by type for preview
   const previewImages = (productMedia || []).filter((item) => item.file_type === "image")
   const previewModels = (productMedia || []).filter(
@@ -318,12 +357,11 @@ export default function EditProductPage() {
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                             radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+              backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                              radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
             }}
           ></div>
         </div>
-
         <HeaderWrapper>
           <div className="relative z-10 min-h-screen w-full p-4 md:p-8 flex items-center justify-center">
             <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl max-w-3xl">
@@ -335,7 +373,7 @@ export default function EditProductPage() {
                 <Button
                   asChild
                   variant="outline"
-                  className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
+                  className="border-[#F3C998]/50 text-[#F3C998] hover:bg-[#F3C998]/10 hover:border-[#F3C998] transition-all duration-300 backdrop-blur-sm bg-transparent"
                 >
                   <Link href="/dashboard?tab=products">
                     <ArrowLeft className="h-4 w-4 mr-2" />
@@ -359,8 +397,8 @@ export default function EditProductPage() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                           radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                            radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
           }}
         ></div>
       </div>
@@ -373,7 +411,6 @@ export default function EditProductPage() {
       <HeaderWrapper>
         <div className="relative z-10 min-h-screen w-full p-4 md:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
-
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <div className="max-w-5xl mx-auto">
@@ -386,7 +423,7 @@ export default function EditProductPage() {
                     <Button
                       asChild
                       variant="outline"
-                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
+                      className="border-[#F3C998]/50 text-[#F3C998] hover:bg-[#F3C998]/10 hover:border-[#F3C998] transition-all duration-300 backdrop-blur-sm bg-transparent"
                     >
                       <Link href="/dashboard?tab=products">
                         <ArrowLeft className="h-4 w-4 mr-2" />
@@ -430,7 +467,7 @@ export default function EditProductPage() {
                                   <Input
                                     placeholder="e.g., 'Wooden Chair'"
                                     {...field}
-                                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                    className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -448,7 +485,7 @@ export default function EditProductPage() {
                                     placeholder="Describe your product in detail..."
                                     rows={6}
                                     {...field}
-                                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                    className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -467,16 +504,16 @@ export default function EditProductPage() {
                         </CardHeader>
                         <CardContent>
                           <Tabs defaultValue="media" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 bg-white/5">
+                            <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/20">
                               <TabsTrigger
                                 value="media"
-                                className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D]"
+                                className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D] hover:bg-white/10 transition-all duration-300"
                               >
                                 Media
                               </TabsTrigger>
                               <TabsTrigger
                                 value="3d-model"
-                                className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D]"
+                                className="text-white data-[state=active]:bg-[#F3C998] data-[state=active]:text-[#1D212D] hover:bg-white/10 transition-all duration-300"
                               >
                                 3D Model
                               </TabsTrigger>
@@ -501,22 +538,31 @@ export default function EditProductPage() {
                               />
                             </TabsContent>
                             <TabsContent value="3d-model">
-                              <ThreeDGenerationPanel
-                                productId={productId}
-                                productMedia={productMedia}
-                                has3dModel={product?.has_3d_model || false}
-                                generationStatus={generationStatus}
-                                isGenerating={isGenerating}
-                                isCancelling={isCancelling}
-                                onGenerationStart={handleGenerationStart}
-                                onCancel={handleCancelGeneration}
-                              />
+                            <ThreeDGenerationPanel
+  images={productMedia
+    .filter(media => media.file_type === 'image')
+    .map(media => ({
+      id: media.id.toString(),
+      url: getMediaUrl(media) || '/placeholder.svg'
+    }))
+  }
+  onImageSelect={handleImageSelect}
+  selectedImages={selectedImages}
+  onGenerate={handleGenerate3D}
+  status={generationStatus?.status || 'ready'}
+  progress={generationStatus?.progress || 0}
+  message={generationStatus?.message || ''}
+  onCancel={handleCancelGeneration}
+  clothingType={clothingType}
+  onClothingTypeChange={setClothingType}
+  detailLevel={detailLevel}
+  onDetailLevelChange={setDetailLevel}
+/>
                             </TabsContent>
                           </Tabs>
                         </CardContent>
                       </Card>
 
-                      {/* Customer Reviews */}
                       <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
                         <CardHeader>
                           <CardTitle className="text-white text-xl">Customer Reviews</CardTitle>
@@ -584,7 +630,7 @@ export default function EditProductPage() {
                                     step="0.01"
                                     placeholder="e.g., 99.99"
                                     {...field}
-                                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                    className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -604,7 +650,7 @@ export default function EditProductPage() {
                                     placeholder="e.g., 79.99"
                                     {...field}
                                     value={field.value ?? ""}
-                                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                    className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -622,7 +668,7 @@ export default function EditProductPage() {
                                     type="number"
                                     placeholder="e.g., 100"
                                     {...field}
-                                    className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                    className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -645,7 +691,10 @@ export default function EditProductPage() {
                                 <FormLabel className="text-white">Product Category</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
-                                    <SelectTrigger className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200" style={{ colorScheme: 'dark' }}>
+                                    <SelectTrigger
+                                      className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
+                                      style={{ colorScheme: "dark" }}
+                                    >
                                       <SelectValue placeholder="Select a category" />
                                     </SelectTrigger>
                                   </FormControl>
@@ -682,7 +731,7 @@ export default function EditProductPage() {
                                 <FormLabel className="text-white">Status</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
-                                    <SelectTrigger className="bg-white/5 border-white/20 text-white hover:bg-white/10 focus:bg-white/10">
+                                    <SelectTrigger className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
                                       <SelectValue placeholder="Select status" />
                                     </SelectTrigger>
                                   </FormControl>
@@ -706,7 +755,7 @@ export default function EditProductPage() {
                             control={form.control}
                             name="is_active"
                             render={({ field }) => (
-                              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-white/20 p-3 shadow-sm bg-white/5">
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border border-white/20 p-3 shadow-sm bg-white/10">
                                 <div className="space-y-0.5">
                                   <FormLabel className="text-white">Is Active</FormLabel>
                                 </div>
@@ -715,7 +764,7 @@ export default function EditProductPage() {
                                     type="checkbox"
                                     checked={field.value}
                                     onChange={(e) => field.onChange(e.target.checked)}
-                                    className="form-checkbox h-5 w-5 text-[#F3C998] bg-white/5 border-white/20 rounded focus:ring-[#F3C998]"
+                                    className="form-checkbox h-5 w-5 text-[#F3C998] bg-white/10 border-white/20 rounded focus:ring-[#F3C998]"
                                   />
                                 </FormControl>
                               </FormItem>
@@ -735,7 +784,7 @@ export default function EditProductPage() {
                                       placeholder="e.g., 1.5"
                                       {...field}
                                       value={field.value ?? ""}
-                                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                      className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -755,7 +804,7 @@ export default function EditProductPage() {
                                       placeholder="e.g., 30"
                                       {...field}
                                       value={field.value ?? ""}
-                                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                      className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -775,7 +824,7 @@ export default function EditProductPage() {
                                       placeholder="e.g., 20"
                                       {...field}
                                       value={field.value ?? ""}
-                                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                      className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -795,7 +844,7 @@ export default function EditProductPage() {
                                       placeholder="e.g., 10"
                                       {...field}
                                       value={field.value ?? ""}
-                                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-400 hover:bg-white/10 focus:bg-white/10"
+                                      className="bg-white/10 border border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200"
                                     />
                                   </FormControl>
                                   <FormMessage />
@@ -805,6 +854,17 @@ export default function EditProductPage() {
                           </div>
                         </CardContent>
                       </Card>
+
+                      {/* Variant Manager */}
+                      <VariantManager
+                        productId={productId}
+                        variants={variants}
+                        onVariantsChange={(newVariants) => {
+                          setVariants(newVariants)
+                          form.setValue("variants", newVariants)
+                        }}
+                        isEditing={true}
+                      />
                     </motion.div>
                   </div>
 

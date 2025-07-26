@@ -4,7 +4,12 @@ import { useState, useEffect } from "react"
 import { useGetAllUsersQuery, useGetUserStatsQuery, useDeleteUserMutation } from "@/store/services/adminApi"
 import { useGetAllOrdersQuery, useDeleteOrderMutation } from "@/store/services/orderApi"
 import { useGetProductsQuery } from "@/store/services/productApi"
-import { useGetCategoriesQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation } from "@/store/services/productApi"
+import {
+  useGetCategoriesQuery,
+  useCreateCategoryMutation,
+  useUpdateCategoryMutation,
+  useDeleteCategoryMutation,
+} from "@/store/services/productApi"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +28,8 @@ import {
   Trash2,
   Tag,
   Grid3X3,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,39 +38,142 @@ import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useGetDashboardStatsQuery } from "@/store/services/analyticsApi"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+interface User {
+  id: number
+  username: string
+  email: string
+  role: string
+  is_active: boolean
+  joining_date?: string
+  date_joined: string
+  last_login?: string
+}
+
+interface Order {
+  id: number
+  customer_full_name?: string
+  customer_username?: string
+  seller_names?: string
+  created_at: string
+  status: string
+  total_price: number | string
+}
+
+interface Product {
+  id: number
+  name: string
+  price: number | string
+  stock?: number
+  created_at?: string
+  seller_name?: string
+  seller_username?: string
+  category?: number | { id: number; name: string }
+  category_id?: number
+  category_details?: { name: string }
+}
+
+interface Category {
+  id: number
+  name: string
+  description?: string
+}
+
+interface DashboardStats {
+  total_users: number
+  total_orders: number
+  total_products: number
+  total_revenue: number
+  total_sales?: number
+  users_change: number
+  orders_change: number
+  products_change: number
+  revenue_change: number
+  customers_count: number
+  sellers_count: number
+  admins_count: number
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryDescription, setNewCategoryDescription] = useState("")
-  const [editingCategory, setEditingCategory] = useState<any>(null)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const { currentUser } = useAuth()
-  const { data: userStats, isLoading: isLoadingUserStats } = useGetUserStatsQuery()
-  const { data: users, isLoading: isLoadingUsers } = useGetAllUsersQuery()
+
+  // API Queries with better error handling
+  const {
+    data: userStats,
+    isLoading: isLoadingUserStats,
+    error: userStatsError,
+    refetch: refetchUserStats,
+  } = useGetUserStatsQuery(undefined, {
+    skip: false,
+  })
+
+  const { data: users, isLoading: isLoadingUsers, refetch: refetchUsers } = useGetAllUsersQuery()
+
   const {
     data: orders,
     isLoading: isLoadingOrders,
     error: ordersError,
     refetch: refetchOrders,
   } = useGetAllOrdersQuery()
-  const { data: products, isLoading: isLoadingProducts } = useGetProductsQuery(undefined, { skip: !currentUser?.id })
-  const { data: dashboardStats, isLoading: isLoadingDashboardStats } = useGetDashboardStatsQuery()
 
+  const {
+    data: products,
+    isLoading: isLoadingProducts,
+    refetch: refetchProducts,
+  } = useGetProductsQuery(undefined, {
+    skip: !currentUser?.id,
+  })
+
+  const {
+    data: dashboardStats,
+    isLoading: isLoadingDashboardStats,
+    refetch: refetchDashboardStats,
+  } = useGetDashboardStatsQuery()
+
+  // API Mutations
   const [deleteUser] = useDeleteUserMutation()
   const [deleteOrder] = useDeleteOrderMutation()
 
-  // Use real-time stats from backend
-  const totalUsers = dashboardStats?.total_users || 0
+  // Filter and sort states
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [sortOrder, setSortOrder] = useState<string>("newest")
+  const [productSortOrder, setProductSortOrder] = useState<string>("newest")
+
+  // Category management
+  const { data: categories = [], isLoading: isLoadingCategories, refetch: refetchCategories } = useGetCategoriesQuery()
+  const [createCategory] = useCreateCategoryMutation()
+  const [updateCategory] = useUpdateCategoryMutation()
+  const [deleteCategory] = useDeleteCategoryMutation()
+
+  // Error handling for user stats
+  const hasUserStatsError = userStatsError && "status" in userStatsError && userStatsError.status === 404
+
+  // Dashboard statistics with fallback values
+  const totalUsers = hasUserStatsError ? users?.length || 0 : dashboardStats?.total_users || 0
+  const customersCount = hasUserStatsError
+    ? users?.filter((u) => u.role === "customer").length || 0
+    : dashboardStats?.customers_count || 0
+  const sellersCount = hasUserStatsError
+    ? users?.filter((u) => u.role === "seller").length || 0
+    : dashboardStats?.sellers_count || 0
+  const adminsCount = hasUserStatsError
+    ? users?.filter((u) => u.role === "admin").length || 0
+    : dashboardStats?.admins_count || 0
+
   const totalOrders = dashboardStats?.total_orders || 0
   const totalProducts = dashboardStats?.total_products || 0
-  const totalRevenue = dashboardStats?.total_revenue ?? dashboardStats?.total_sales ?? 0;
+  const totalRevenue = dashboardStats?.total_revenue ?? dashboardStats?.total_sales ?? 0
   const usersChange = dashboardStats?.users_change || 0
   const ordersChange = dashboardStats?.orders_change || 0
   const productsChange = dashboardStats?.products_change || 0
   const revenueChange = dashboardStats?.revenue_change || 0
-  const customersCount = dashboardStats?.customers_count || 0
-  const sellersCount = dashboardStats?.sellers_count || 0
-  const adminsCount = dashboardStats?.admins_count || 0
 
   const userTypeData = [
     { name: "Customers", value: customersCount },
@@ -79,89 +189,105 @@ export default function AdminDashboard() {
   const isLoading =
     isLoadingUserStats || isLoadingUsers || isLoadingOrders || isLoadingProducts || isLoadingDashboardStats
 
-  // Use live categories from backend
-  const { data: categories = [], isLoading: isLoadingCategories, refetch: refetchCategories } = useGetCategoriesQuery()
-  const [createCategory] = useCreateCategoryMutation()
-  const [updateCategory] = useUpdateCategoryMutation()
-  const [deleteCategory] = useDeleteCategoryMutation()
-
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortOrder, setSortOrder] = useState<string>("newest");
-  const [productSortOrder, setProductSortOrder] = useState<string>("newest");
-
-  // Filter and sort orders based on dropdowns
+  // Filter and sort orders
   const filteredOrders = (orders || [])
-    .filter(order => statusFilter === "all" || order.status === statusFilter)
+    .filter((order) => statusFilter === "all" || order.status === statusFilter)
     .sort((a, b) => {
-      if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (sortOrder === "highest") return Number(b.total_price || 0) - Number(a.total_price || 0);
-      if (sortOrder === "lowest") return Number(a.total_price || 0) - Number(b.total_price || 0);
-      return 0;
-    });
+      if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      if (sortOrder === "highest") return Number(b.total_price || 0) - Number(a.total_price || 0)
+      if (sortOrder === "lowest") return Number(a.total_price || 0) - Number(b.total_price || 0)
+      return 0
+    })
 
+  // Sort products
   const sortedProducts = [...(products || [])].sort((a, b) => {
-    if (productSortOrder === "newest") return new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime();
-    if (productSortOrder === "price_asc") return Number(a.price) - Number(b.price);
-    if (productSortOrder === "price_desc") return Number(b.price) - Number(a.price);
-    if (productSortOrder === "name_asc") return a.name.localeCompare(b.name);
-    if (productSortOrder === "name_desc") return b.name.localeCompare(a.name);
-    return 0;
-  });
+    if (productSortOrder === "newest")
+      return new Date(b.created_at ?? "").getTime() - new Date(a.created_at ?? "").getTime()
+    if (productSortOrder === "price_asc") return Number(a.price) - Number(b.price)
+    if (productSortOrder === "price_desc") return Number(b.price) - Number(a.price)
+    if (productSortOrder === "name_asc") return a.name.localeCompare(b.name)
+    if (productSortOrder === "name_desc") return b.name.localeCompare(a.name)
+    return 0
+  })
 
+  // Clear error message after 5 seconds
   useEffect(() => {
-    console.log("Admin orders data:", orders)
-    console.log("Admin orders error:", ordersError)
-    const token = localStorage.getItem("token")
-    console.log("Auth token available:", token ? "Yes" : "No")
-    if (ordersError) {
-      console.error("Admin orders error details:", ordersError)
+    if (errorMessage) {
+      const timer = setTimeout(() => {
+        setErrorMessage(null)
+      }, 5000)
+      return () => clearTimeout(timer)
     }
-  }, [orders, ordersError])
+  }, [errorMessage])
+
+  // Enhanced error logging
+  useEffect(() => {
+    if (ordersError) {
+      console.error("Orders API Error:", ordersError)
+    }
+    if (userStatsError) {
+      console.error("User Stats API Error:", userStatsError)
+    }
+  }, [ordersError, userStatsError])
 
   // Category management functions
-  // Update add/edit/delete handlers to use backend mutations
   const handleAddCategory = async () => {
     if (newCategoryName.trim()) {
-      await createCategory(
-        (() => {
-          const formData = new FormData()
-          formData.append('name', newCategoryName)
-          formData.append('description', newCategoryDescription)
-          return formData
-        })()
-      ).unwrap()
-      setNewCategoryName("")
-      setNewCategoryDescription("")
-      refetchCategories()
+      try {
+        const formData = new FormData()
+        formData.append("name", newCategoryName)
+        formData.append("description", newCategoryDescription)
+        await createCategory(formData).unwrap()
+        setNewCategoryName("")
+        setNewCategoryDescription("")
+        refetchCategories()
+        setErrorMessage(null)
+      } catch (error: any) {
+        console.error("Failed to create category:", error)
+        setErrorMessage("Failed to create category. Please try again.")
+      }
     }
   }
-  const handleEditCategory = (category: any) => {
+
+  const handleEditCategory = (category: Category) => {
     setEditingCategory(category)
     setNewCategoryName(category.name)
-    setNewCategoryDescription(category.description)
+    setNewCategoryDescription(category.description || "")
   }
+
   const handleUpdateCategory = async () => {
     if (editingCategory && newCategoryName.trim()) {
-      await updateCategory({
-        id: editingCategory.id,
-        formData: (() => {
-          const formData = new FormData()
-          formData.append('name', newCategoryName)
-          formData.append('description', newCategoryDescription)
-          return formData
-        })()
-      }).unwrap()
-      setEditingCategory(null)
-      setNewCategoryName("")
-      setNewCategoryDescription("")
-      refetchCategories()
+      try {
+        const formData = new FormData()
+        formData.append("name", newCategoryName)
+        formData.append("description", newCategoryDescription)
+        await updateCategory({
+          id: editingCategory.id,
+          formData,
+        }).unwrap()
+        setEditingCategory(null)
+        setNewCategoryName("")
+        setNewCategoryDescription("")
+        refetchCategories()
+        setErrorMessage(null)
+      } catch (error: any) {
+        console.error("Failed to update category:", error)
+        setErrorMessage("Failed to update category. Please try again.")
+      }
     }
   }
+
   const handleDeleteCategory = async (categoryId: number) => {
     if (window.confirm("Are you sure you want to delete this category? This action cannot be undone.")) {
-      await deleteCategory(categoryId).unwrap()
-      refetchCategories()
+      try {
+        await deleteCategory(categoryId).unwrap()
+        refetchCategories()
+        setErrorMessage(null)
+      } catch (error: any) {
+        console.error("Failed to delete category:", error)
+        setErrorMessage("Failed to delete category. It may be in use by existing products.")
+      }
     }
   }
 
@@ -169,6 +295,78 @@ export default function AdminDashboard() {
     setEditingCategory(null)
     setNewCategoryName("")
     setNewCategoryDescription("")
+  }
+
+  // Enhanced user deletion with better error handling
+  const handleDeleteUser = async (userId: number) => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this user? This will also remove all their associated data (wishlist, orders, etc.).",
+      )
+    ) {
+      setDeletingUserId(userId)
+      try {
+        await deleteUser(userId).unwrap()
+        setErrorMessage(null)
+        // Refresh users list
+        refetchUsers()
+        // Also refresh dashboard stats
+        refetchDashboardStats()
+      } catch (error: any) {
+        console.error("Failed to delete user:", error)
+
+        // Enhanced error handling based on the specific error
+        if (error?.data?.error?.includes("foreign key constraint")) {
+          setErrorMessage(
+            "Cannot delete user: This user has associated data (orders, wishlist items, etc.). " +
+              "Please contact your system administrator to handle data cleanup before deletion.",
+          )
+        } else if (error.status === 500) {
+          setErrorMessage(
+            "Server error: Unable to delete user. This may be due to database constraints or server configuration issues.",
+          )
+        } else if (error.status === 403) {
+          setErrorMessage("Permission denied: You don't have permission to delete this user.")
+        } else if (error.status === 404) {
+          setErrorMessage("User not found: This user may have already been deleted.")
+        } else {
+          setErrorMessage("Failed to delete user. Please try again later or contact support.")
+        }
+      } finally {
+        setDeletingUserId(null)
+      }
+    }
+  }
+
+  const handleDeleteOrder = async (orderId: number) => {
+    if (window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) {
+      try {
+        await deleteOrder(orderId).unwrap()
+        refetchOrders()
+        setErrorMessage(null)
+      } catch (error: any) {
+        console.error("Failed to delete order:", error)
+        setErrorMessage("Failed to delete order. Please try again.")
+      }
+    }
+  }
+
+  // Refresh all data function
+  const handleRefreshAll = async () => {
+    try {
+      await Promise.all([
+        refetchUsers(),
+        refetchOrders(),
+        refetchProducts(),
+        refetchCategories(),
+        refetchDashboardStats(),
+        refetchUserStats(),
+      ])
+      setErrorMessage(null)
+    } catch (error) {
+      console.error("Failed to refresh data:", error)
+      setErrorMessage("Failed to refresh some data. Please try again.")
+    }
   }
 
   if (isLoading) {
@@ -184,13 +382,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#1D212D] via-[#2A2F3A] to-[#1D212D] relative">
-      {/* Full screen background pattern */}
+      {/* Background pattern */}
       <div className="fixed inset-0 opacity-5">
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                           radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                            radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
           }}
         ></div>
       </div>
@@ -215,7 +413,42 @@ export default function AdminDashboard() {
               </h2>
               <p className="text-gray-400 text-lg">Manage users, orders, and platform analytics</p>
             </div>
+            <Button
+              onClick={handleRefreshAll}
+              variant="outline"
+              className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh All
+            </Button>
           </div>
+
+          {/* Error Message Alert */}
+          {errorMessage && (
+            <Alert className="bg-red-500/20 border-red-500/30 backdrop-blur-sm">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-red-200">{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* API Connection Issues Warning */}
+          {(ordersError || userStatsError || hasUserStatsError) && (
+            <div className="mb-6 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
+              <div className="flex items-center mb-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-300 mr-2" />
+                <h3 className="text-yellow-300 font-medium">API Connection Issues</h3>
+              </div>
+              <div className="text-sm text-yellow-200 space-y-1">
+                {userStatsError && (
+                  <p>• User statistics endpoint is not available (using fallback data from users list)</p>
+                )}
+                {ordersError && <p>• Orders endpoint may have connectivity issues</p>}
+                <p className="text-xs text-yellow-300 mt-2">
+                  Some features may be limited. The dashboard will use available data where possible.
+                </p>
+              </div>
+            </div>
+          )}
 
           <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="bg-white/10 backdrop-blur-xl border border-white/20 p-1 shadow-2xl">
@@ -252,6 +485,7 @@ export default function AdminDashboard() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-8 mt-8">
+              {/* Stats Cards */}
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Card className="bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 transition-all duration-500 group shadow-2xl hover:shadow-[#F3C998]/10 hover:shadow-2xl">
                   <CardContent className="p-8">
@@ -342,6 +576,7 @@ export default function AdminDashboard() {
                 </Card>
               </div>
 
+              {/* Charts and Recent Data */}
               <div className="grid gap-8 md:grid-cols-2">
                 <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
                   <CardHeader className="pb-6">
@@ -425,137 +660,126 @@ export default function AdminDashboard() {
                 </Card>
               </div>
 
-              <div className="grid gap-8">
-                <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
-                  <CardHeader className="pb-6">
-                    <CardTitle className="text-white text-2xl font-bold">Recent Orders</CardTitle>
-                    <CardDescription className="text-gray-300 text-lg">
-                      Latest orders across the platform
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {recentOrders && recentOrders.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="border-white/20 hover:bg-white/5">
-                              <TableHead className="text-gray-300 font-semibold text-base">Order ID</TableHead>
-                              <TableHead className="text-gray-300 font-semibold text-base">Customer</TableHead>
-                              <TableHead className="text-gray-300 font-semibold text-base">Seller</TableHead>
-                              <TableHead className="text-gray-300 font-semibold text-base">Date</TableHead>
-                              <TableHead className="text-gray-300 font-semibold text-base">Status</TableHead>
-                              <TableHead className="text-gray-300 font-semibold text-base text-right">Amount</TableHead>
-                              <TableHead className="text-gray-300 font-semibold text-base">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {recentOrders.map((order) => (
-                              <TableRow
-                                key={order.id}
-                                className="border-white/10 hover:bg-white/5 transition-colors duration-300"
-                              >
-                                <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
-                                <TableCell className="text-gray-300 text-base">
-                                  {order.customer_full_name || order.customer_username || "Unknown"}
-                                </TableCell>
-                                <TableCell className="text-gray-300 text-base">
-                                  {order.seller_names || "Unknown"}
-                                </TableCell>
-                                <TableCell className="text-gray-300 text-base">
-                                  {new Date(order.created_at).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    className={
-                                      order.status === "delivered"
-                                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-3 py-1"
-                                        : order.status === "cancelled"
-                                          ? "bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1"
-                                          : order.status === "pending"
-                                            ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-3 py-1"
-                                            : order.status === "processing"
-                                              ? "bg-blue-400/20 text-blue-300 border-blue-400/30 px-3 py-1"
-                                              : order.status === "shipped"
-                                                ? "bg-indigo-400/20 text-indigo-300 border-indigo-400/30 px-3 py-1"
-                                                : "bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
-                                    }
+              {/* Recent Orders */}
+              <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-white text-2xl font-bold">Recent Orders</CardTitle>
+                  <CardDescription className="text-gray-300 text-lg">Latest orders across the platform</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {recentOrders && recentOrders.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-white/20 hover:bg-white/5">
+                            <TableHead className="text-gray-300 font-semibold text-base">Order ID</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base">Customer</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base">Seller</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base">Date</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base">Status</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base text-right">Amount</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {recentOrders.map((order) => (
+                            <TableRow
+                              key={order.id}
+                              className="border-white/10 hover:bg-white/5 transition-colors duration-300"
+                            >
+                              <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
+                              <TableCell className="text-gray-300 text-base">
+                                {order.customer_full_name || order.customer_username || "Unknown"}
+                              </TableCell>
+                              <TableCell className="text-gray-300 text-base">
+                                {order.seller_names || "Unknown"}
+                              </TableCell>
+                              <TableCell className="text-gray-300 text-base">
+                                {new Date(order.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  className={
+                                    order.status === "delivered"
+                                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-3 py-1"
+                                      : order.status === "cancelled"
+                                        ? "bg-red-500/20 text-red-300 border-red-500/30 px-3 py-1"
+                                        : order.status === "pending"
+                                          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30 px-3 py-1"
+                                          : order.status === "processing"
+                                            ? "bg-blue-400/20 text-blue-300 border-blue-400/30 px-3 py-1"
+                                            : order.status === "shipped"
+                                              ? "bg-indigo-400/20 text-indigo-300 border-indigo-400/30 px-3 py-1"
+                                              : "bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
+                                  }
+                                >
+                                  {order.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right text-white font-semibold text-base">
+                                $
+                                {typeof order.total_price === "number"
+                                  ? order.total_price.toFixed(2)
+                                  : typeof order.total_price === "string"
+                                    ? Number.parseFloat(order.total_price).toFixed(2)
+                                    : "0.00"}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex space-x-3">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    asChild
+                                    className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
                                   >
-                                    {order.status}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-white font-semibold text-base">
-                                  $
-                                  {typeof order.total_price === "number"
-                                    ? order.total_price.toFixed(2)
-                                    : typeof order.total_price === "string"
-                                      ? Number.parseFloat(order.total_price).toFixed(2)
-                                      : "0.00"}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex space-x-3">
+                                    <Link href={`/admin/orders/${order.id}`}>Details</Link>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      alert(`Update status for order #${order.id}`)
+                                    }}
+                                    className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                                  >
+                                    Update
+                                  </Button>
+                                  {currentUser?.role === "admin" && (
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      asChild
-                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                      className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
+                                      onClick={() => handleDeleteOrder(order.id)}
                                     >
-                                      <Link href={`/admin/orders/${order.id}`}>Details</Link>
+                                      Delete
                                     </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => {
-                                        alert(`Update status for order #${order.id}`)
-                                      }}
-                                      className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
-                                    >
-                                      Update
-                                    </Button>
-                                    {currentUser?.role === "admin" && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
-                                        onClick={() => {
-                                          if (
-                                            window.confirm(
-                                              "Are you sure you want to delete this order? This action cannot be undone.",
-                                            )
-                                          ) {
-                                            deleteOrder(order.id).unwrap().then(refetchOrders)
-                                          }
-                                        }}
-                                      >
-                                        Delete
-                                      </Button>
-                                    )}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-16">
-                        <p className="text-gray-400 mb-6 text-xl">No recent orders found</p>
-                        <p className="text-sm text-gray-500 mb-8">
-                          This could be because there are no orders in the system yet, or there might be an issue with
-                          the API connection.
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          onClick={() => refetchOrders()}
-                          className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
-                        >
-                          Try Again
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <p className="text-gray-400 mb-6 text-xl">No recent orders found</p>
+                      <p className="text-sm text-gray-500 mb-8">
+                        This could be because there are no orders in the system yet, or there might be an issue with the
+                        API connection.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => refetchOrders()}
+                        className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="users" className="space-y-8 mt-8">
@@ -575,6 +799,9 @@ export default function AdminDashboard() {
                           <TableHead className="text-gray-300 font-semibold text-base">Status</TableHead>
                           <TableHead className="text-gray-300 font-semibold text-base">Joined</TableHead>
                           <TableHead className="text-gray-300 font-semibold text-base">Last Login</TableHead>
+                          {currentUser?.role === "admin" && (
+                            <TableHead className="text-gray-300 font-semibold text-base">Actions</TableHead>
+                          )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -622,10 +849,18 @@ export default function AdminDashboard() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => deleteUser(user.id)}
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  disabled={deletingUserId === user.id}
                                   className="border-red-500/30 text-red-300 hover:bg-red-500/20 hover:border-red-500/50 transition-all duration-300 backdrop-blur-sm"
                                 >
-                                  Delete
+                                  {deletingUserId === user.id ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-3 w-3 border border-red-300 border-t-transparent mr-1"></div>
+                                      Deleting...
+                                    </>
+                                  ) : (
+                                    "Delete"
+                                  )}
                                 </Button>
                               </TableCell>
                             )}
@@ -674,6 +909,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                   )}
+
                   <div className="space-y-6">
                     <div className="flex flex-wrap gap-4 items-center justify-between">
                       <div className="flex flex-wrap gap-3">
@@ -690,6 +926,7 @@ export default function AdminDashboard() {
                             <SelectItem value="cancelled">Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
+
                         <Select value={sortOrder} onValueChange={setSortOrder}>
                           <SelectTrigger className="w-48 bg-white/10 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998] placeholder:text-gray-400 transition-colors duration-200">
                             <SelectValue placeholder="Newest First" />
@@ -701,15 +938,9 @@ export default function AdminDashboard() {
                             <SelectItem value="lowest">Lowest Amount</SelectItem>
                           </SelectContent>
                         </Select>
-                        <input
-                          type="date"
-                          className="bg-white/10 border border-white/20 rounded-lg p-3 text-white backdrop-blur-xl text-base"
-                          onChange={(e) => {
-                            console.log("Filter by date:", e.target.value)
-                          }}
-                        />
                       </div>
                     </div>
+
                     {isLoadingOrders ? (
                       <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
@@ -796,15 +1027,7 @@ export default function AdminDashboard() {
                                         variant="outline"
                                         size="sm"
                                         className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-300 bg-transparent backdrop-blur-sm"
-                                        onClick={() => {
-                                          if (
-                                            window.confirm(
-                                              "Are you sure you want to delete this order? This action cannot be undone.",
-                                            )
-                                          ) {
-                                            deleteOrder(order.id).unwrap().then(refetchOrders)
-                                          }
-                                        }}
+                                        onClick={() => handleDeleteOrder(order.id)}
                                       >
                                         Delete
                                       </Button>
@@ -853,14 +1076,25 @@ export default function AdminDashboard() {
                         <SelectValue placeholder="Sort by..." />
                       </SelectTrigger>
                       <SelectContent className="bg-[#2A2F3A] border-white/20">
-                        <SelectItem value="newest" className="text-white hover:bg-white/10">Newest Arrivals</SelectItem>
-                        <SelectItem value="price_asc" className="text-white hover:bg-white/10">Price: Low to High</SelectItem>
-                        <SelectItem value="price_desc" className="text-white hover:bg-white/10">Price: High to Low</SelectItem>
-                        <SelectItem value="name_asc" className="text-white hover:bg-white/10">Name: A to Z</SelectItem>
-                        <SelectItem value="name_desc" className="text-white hover:bg-white/10">Name: Z to A</SelectItem>
+                        <SelectItem value="newest" className="text-white hover:bg-white/10">
+                          Newest Arrivals
+                        </SelectItem>
+                        <SelectItem value="price_asc" className="text-white hover:bg-white/10">
+                          Price: Low to High
+                        </SelectItem>
+                        <SelectItem value="price_desc" className="text-white hover:bg-white/10">
+                          Price: High to Low
+                        </SelectItem>
+                        <SelectItem value="name_asc" className="text-white hover:bg-white/10">
+                          Name: A to Z
+                        </SelectItem>
+                        <SelectItem value="name_desc" className="text-white hover:bg-white/10">
+                          Name: Z to A
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -1011,7 +1245,6 @@ export default function AdminDashboard() {
                       <Grid3X3 className="h-5 w-5" style={{ color: "#F3C998" }} />
                       Existing Categories
                     </h3>
-
                     {isLoadingCategories ? (
                       <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]"></div>
@@ -1044,7 +1277,12 @@ export default function AdminDashboard() {
                                     className="px-3 py-1 border-white/20"
                                     style={{ backgroundColor: "rgba(243, 201, 152, 0.2)", color: "#F3C998" }}
                                   >
-                                    {(products?.filter(p => (typeof p.category === 'number' ? p.category === category.id : p.category?.id === category.id || p.category_id === category.id)).length) || 0} products
+                                    {products?.filter((p) =>
+                                      typeof p.category === "number"
+                                        ? p.category === category.id
+                                        : p.category?.id === category.id || p.category_id === category.id,
+                                    ).length || 0}{" "}
+                                    products
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -1108,15 +1346,12 @@ export default function AdminDashboard() {
                         </div>
                       </CardContent>
                     </Card>
-
                     <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium text-gray-300 mb-1">Total Products</p>
-                            <h3 className="text-2xl font-bold text-white">
-                              {products?.length || 0}
-                            </h3>
+                            <h3 className="text-2xl font-bold text-white">{products?.length || 0}</h3>
                           </div>
                           <div
                             className="p-3 rounded-xl shadow-lg"

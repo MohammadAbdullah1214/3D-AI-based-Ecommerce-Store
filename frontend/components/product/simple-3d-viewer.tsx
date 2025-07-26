@@ -340,20 +340,25 @@ export default function Simple3DViewer({
     setMounted(true)
   }, [])
 
-  // Simple fullscreen effect that doesn't interfere with anything
+  // Enhanced fullscreen effect with body scroll management
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && isFullscreen) {
-        setIsFullscreen(false)
+        setIsFullscreen(false);
+        document.body.classList.remove('fullscreen-active');
       }
     }
 
     if (isFullscreen) {
-      document.addEventListener("keydown", handleEscape)
+      document.addEventListener("keydown", handleEscape);
+      document.body.classList.add('fullscreen-active');
     }
 
     return () => {
-      document.removeEventListener("keydown", handleEscape)
+      document.removeEventListener("keydown", handleEscape);
+      if (isFullscreen) {
+        document.body.classList.remove('fullscreen-active');
+      }
     }
   }, [isFullscreen])
 
@@ -373,7 +378,15 @@ export default function Simple3DViewer({
   }
 
   const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen)
+    const newFullscreenState = !isFullscreen;
+    setIsFullscreen(newFullscreenState);
+    
+    // Prevent body scroll when fullscreen is active
+    if (newFullscreenState) {
+      document.body.classList.add('fullscreen-active');
+    } else {
+      document.body.classList.remove('fullscreen-active');
+    }
   }
 
   const rotateToFront = () => {
@@ -560,17 +573,34 @@ export default function Simple3DViewer({
   if (isFullscreen) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[99999] flex items-center justify-center"
+        className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-sm"
         style={{
           position: "fixed",
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          background: "linear-gradient(135deg, #1D212D 0%, #2A2F3A 100%)",
+          zIndex: 99999,
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setIsFullscreen(false)
+          }
         }}
       >
-        <div className="w-full h-full max-w-7xl max-h-screen p-2 sm:p-4">{viewerContent}</div>
+        <div className="w-full h-full max-w-none max-h-none p-4 relative">
+          {viewerContent}
+          {/* Close button for fullscreen */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsFullscreen(false)}
+            className="absolute top-6 right-6 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg z-10"
+            title="Exit Fullscreen (ESC)"
+          >
+            <Minimize2 className="w-4 h-4 text-gray-700" />
+          </Button>
+        </div>
       </div>,
       document.body,
     )

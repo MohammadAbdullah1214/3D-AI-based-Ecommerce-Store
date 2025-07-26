@@ -224,71 +224,71 @@ def dashboard_stats(request):
     
     # Get top selling products for sellers
     if user.role == 'seller' and not user.is_staff:
-            top_selling_products_qs = OrderItem.objects.filter(
+        top_selling_products_qs = OrderItem.objects.filter(
             product__seller=user,
             order__status__in=['processing', 'shipped', 'delivered']
-            ).values('product__id', 'product__name').annotate(
+        ).values('product__id', 'product__name').annotate(
             total_quantity=Sum('quantity'),
             total_sales=Sum('price')
         ).order_by('-total_quantity')[:5]
-            top_selling_products = [
-                {
-                    'product_id': entry['product__id'],
-                    'product_name': entry['product__name'],
-                    'total_quantity': entry['total_quantity'],
-                    'total_sales': float(entry['total_sales'] or 0)
-                }
-                for entry in top_selling_products_qs
-            ]
+        top_selling_products = [
+            {
+                'product_id': entry['product__id'],
+                'product_name': entry['product__name'],
+                'total_quantity': entry['total_quantity'],
+                'total_sales': float(entry['total_sales'] or 0)
+            }
+            for entry in top_selling_products_qs
+        ]
     else:
         top_selling_products = []
 
-        # --- New: Sales by Category ---
-        if user.role == 'seller' and not user.is_staff:
-            sales_by_category_qs = (
-                OrderItem.objects.filter(
-                    product__seller=user,
-                    order__status__in=['processing', 'shipped', 'delivered']
-                )
-                .values('product__category__name')
-                .annotate(total_sales=Sum('price'))
-                .order_by('-total_sales')
+    # --- New: Sales by Category ---
+    if user.role == 'seller' and not user.is_staff:
+        sales_by_category_qs = (
+            OrderItem.objects.filter(
+                product__seller=user,
+                order__status__in=['processing', 'shipped', 'delivered']
             )
-        else:
-            sales_by_category_qs = (
-                OrderItem.objects.filter(
-                    order__status__in=['processing', 'shipped', 'delivered']
-                )
-                .values('product__category__name')
-                .annotate(total_sales=Sum('price'))
-                .order_by('-total_sales')
+            .values('product__category__name')
+            .annotate(total_sales=Sum('price'))
+            .order_by('-total_sales')
+        )
+    else:
+        sales_by_category_qs = (
+            OrderItem.objects.filter(
+                order__status__in=['processing', 'shipped', 'delivered']
             )
-        sales_by_category = [
-            {'name': entry['product__category__name'] or 'Uncategorized', 'value': float(entry['total_sales'] or 0)}
-            for entry in sales_by_category_qs
-        ]
+            .values('product__category__name')
+            .annotate(total_sales=Sum('price'))
+            .order_by('-total_sales')
+        )
+    sales_by_category = [
+        {'name': entry['product__category__name'] or 'Uncategorized', 'value': float(entry['total_sales'] or 0)}
+        for entry in sales_by_category_qs
+    ]
 
-        # --- Revenue by Seller (for admins) ---
-        revenue_by_seller = []
-        if user.role in ['admin'] or user.is_staff:
-            from django.db.models import F
-            seller_revenue_qs = (
-                OrderItem.objects.filter(
-                    order__status__in=['processing', 'shipped', 'delivered'],
-                    product__seller__isnull=False
-                )
-                .values('product__seller', 'product__seller__username')
-                .annotate(revenue=Sum('price'))
-                .order_by('-revenue')
+    # --- Revenue by Seller (for admins) ---
+    revenue_by_seller = []
+    if user.role in ['admin'] or user.is_staff:
+        from django.db.models import F
+        seller_revenue_qs = (
+            OrderItem.objects.filter(
+                order__status__in=['processing', 'shipped', 'delivered'],
+                product__seller__isnull=False
             )
-            revenue_by_seller = [
-                {
-                    'seller_id': entry['product__seller'],
-                    'seller_username': entry['product__seller__username'],
-                    'revenue': float(entry['revenue'] or 0)
-                }
-                for entry in seller_revenue_qs
-            ]
+            .values('product__seller', 'product__seller__username')
+            .annotate(revenue=Sum('price'))
+            .order_by('-revenue')
+        )
+        revenue_by_seller = [
+            {
+                'seller_id': entry['product__seller'],
+                'seller_username': entry['product__seller__username'],
+                'revenue': float(entry['revenue'] or 0)
+            }
+            for entry in seller_revenue_qs
+        ]
 
     return Response({
         'views_by_day': list(views_by_day),
@@ -297,8 +297,8 @@ def dashboard_stats(request):
         'total_users': total_users,
         'total_orders': total_orders,
         'total_products': total_products,
-        'total_sales': float(total_revenue),  # Changed from total_revenue to total_sales
-        'total_customers': customers_count,  # Changed from customers_count to total_customers
+        'total_sales': float(total_revenue),
+        'total_customers': customers_count,
         'customers_count': customers_count,
         'sellers_count': sellers_count,
         'admins_count': admins_count,
@@ -307,7 +307,7 @@ def dashboard_stats(request):
         'products_change': products_change,
         'revenue_change': revenue_change,
         'sales_by_month': sales_by_month,
-            'top_selling_products': top_selling_products,
-            'sales_by_category': sales_by_category,
-            'revenue_by_seller': revenue_by_seller,
+        'top_selling_products': top_selling_products,
+        'sales_by_category': sales_by_category,
+        'revenue_by_seller': revenue_by_seller,
     })

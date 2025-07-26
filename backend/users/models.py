@@ -26,6 +26,12 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='customer')
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Email verification fields
+    email_verified = models.BooleanField(default=False)
+    email_verification_token = models.UUIDField(null=True, blank=True)
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+    
     # Note: AbstractUser already has is_active and last_login fields
     # We'll just use those instead of creating duplicates
     
@@ -33,6 +39,10 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return self.username
+
+    def is_verified(self):
+        """Check if user's email is verified"""
+        return self.email_verified
 
     class Meta:
         verbose_name = 'User'
@@ -55,3 +65,20 @@ class PasswordResetToken(models.Model):
     class Meta:
         verbose_name = 'Password Reset Token'
         verbose_name_plural = 'Password Reset Tokens'
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    
+    def is_valid(self):
+        """Check if the token is still valid (24 hours)"""
+        return not self.is_used and (timezone.now() - self.created_at) < timedelta(hours=24)
+    
+    def __str__(self):
+        return f"Email verification token for {self.user.username}"
+    
+    class Meta:
+        verbose_name = 'Email Verification Token'
+        verbose_name_plural = 'Email Verification Tokens'

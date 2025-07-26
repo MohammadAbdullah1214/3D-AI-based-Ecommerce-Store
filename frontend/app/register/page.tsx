@@ -235,10 +235,11 @@ export default function RegisterPage() {
         last_name: formData.lastName,
       }).unwrap()
 
+      // Store email for verification purposes
+      localStorage.setItem("pendingVerificationEmail", formData.email)
+      
       setSuccess(true)
-      setTimeout(() => {
-        router.push("/login?registered=true")
-      }, 2000)
+      // Don't redirect immediately - show verification message
     } catch (err: any) {
       console.error("API Error:", err)
       if (err.data?.username) {
@@ -309,18 +310,45 @@ export default function RegisterPage() {
                 Welcome Aboard!
               </CardTitle>
               <CardDescription className="text-center text-white/80 text-base leading-relaxed">
-                Your account has been created successfully. You'll be redirected to sign in shortly.
+                Your account has been created successfully! Please check your email ({formData.email}) and click the verification link to activate your account.
               </CardDescription>
             </CardHeader>
-            <CardFooter className="flex justify-center pt-4 pb-8">
-              <Link href="/login">
+            <CardFooter className="flex flex-col space-y-4 pt-4 pb-8">
+              <div className="w-full space-y-3">
                 <Button
-                  className="backdrop-blur-sm text-white font-semibold px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20"
+                  onClick={() => {
+                    // Resend verification email
+                    fetch("/api/auth/resend-verification/", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email: formData.email }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data.message) {
+                        alert("Verification email sent successfully! Please check your inbox.")
+                      } else {
+                        alert("Failed to resend verification email. Please try again.")
+                      }
+                    })
+                    .catch(() => {
+                      alert("Failed to resend verification email. Please try again.")
+                    })
+                  }}
+                  className="w-full backdrop-blur-sm text-white font-semibold px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20"
                   style={{ backgroundColor: "#F3C998", color: "#1D212D" }}
                 >
-                  Continue to Sign In
+                  Resend Verification Email
                 </Button>
-              </Link>
+                <Link href="/login" className="w-full">
+                  <Button
+                    variant="outline"
+                    className="w-full backdrop-blur-sm text-white font-semibold px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5 border border-white/20"
+                  >
+                    Go to Login
+                  </Button>
+                </Link>
+              </div>
             </CardFooter>
           </Card>
         </div>

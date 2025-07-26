@@ -223,6 +223,63 @@ export const productApi = api.injectEndpoints({
       }),
       invalidatesTags: ["Category"],
     }),
+    getProductMedia: builder.query<ProductMedia[], number>({
+      query: (productId) => `products/${productId}/media/`,
+      providesTags: (result, error, productId) => [{ type: "Media", id: productId }],
+    }),
+    
+    // Variant management endpoints
+    getVariantTypes: builder.query<any[], void>({
+      query: () => "products/variant-types/",
+      providesTags: ["Category"],
+    }),
+    
+    getVariantOptions: builder.query<any[], void>({
+      query: () => "products/variant-options/",
+      providesTags: ["Category"],
+    }),
+    
+    getVariantOptionsByType: builder.query<any[], number>({
+      query: (variantTypeId) => `products/variant-options/by-variant-type/?variant_type=${variantTypeId}`,
+      providesTags: (result, error, variantTypeId) => [{ type: "Category", id: variantTypeId }],
+    }),
+    
+    getProductVariants: builder.query<any[], number>({
+      query: (productId) => `products/variants/by-product/?product_id=${productId}`,
+      providesTags: (result, error, productId) => [{ type: "Product", id: productId }],
+    }),
+    
+    createVariant: builder.mutation<any, { productId: number; variant: any }>({
+      query: ({ productId, variant }) => ({
+        url: `products/${productId}/add-variant/`,
+        method: "POST",
+        body: variant,
+      }),
+      invalidatesTags: (result, error, { productId }) => [
+        { type: "Product", id: productId },
+      ],
+    }),
+    
+    updateVariant: builder.mutation<any, { variantId: number; variant: any }>({
+      query: ({ variantId, variant }) => ({
+        url: `products/variants/${variantId}/`,
+        method: "PUT",
+        body: variant,
+      }),
+      invalidatesTags: (result, error, { variantId }) => [
+        { type: "Product", id: "LIST" },
+      ],
+    }),
+    
+    deleteVariant: builder.mutation<void, number>({
+      query: (variantId) => ({
+        url: `products/variants/${variantId}/`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, variantId) => [
+        { type: "Product", id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: false,
 })
@@ -245,4 +302,12 @@ export const {
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
+  useGetProductMediaQuery,
+  useGetVariantTypesQuery,
+  useGetVariantOptionsQuery,
+  useGetVariantOptionsByTypeQuery,
+  useGetProductVariantsQuery,
+  useCreateVariantMutation,
+  useUpdateVariantMutation,
+  useDeleteVariantMutation,
 } = productApi

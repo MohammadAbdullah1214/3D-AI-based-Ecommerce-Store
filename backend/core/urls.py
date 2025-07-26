@@ -8,7 +8,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from users.views import (
     UserViewSet, user_login, check_username_availability,
-    forgot_password, verify_otp, reset_password
+    forgot_password, verify_otp, reset_password,
+    verify_email, resend_verification_email
 )
 from products.views import WishlistViewSet
 
@@ -28,6 +29,8 @@ urlpatterns = [
     path('api/auth/forgot-password/', forgot_password, name='forgot_password'),
     path('api/auth/verify-otp/', verify_otp, name='verify_otp'),
     path('api/auth/reset-password/', reset_password, name='reset_password'),
+    path('api/auth/verify-email/', verify_email, name='verify_email'),
+    path('api/auth/resend-verification/', resend_verification_email, name='resend_verification_email'),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/products/', include('products.urls')),

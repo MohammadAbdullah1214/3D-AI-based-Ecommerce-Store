@@ -9,13 +9,16 @@ from django.db import transaction, connection
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db.models import Count, Q
 import random
-from .models import CustomUser, PasswordResetToken
+from .models import CustomUser, PasswordResetToken, EmailVerificationToken
 from .serializers import (
     CustomUserSerializer, LoginSerializer, ChangePasswordSerializer,
     ForgotPasswordSerializer, VerifyOTPSerializer, ResetPasswordSerializer
 )
 from permissions import IsAdmin
+import uuid
+from datetime import timedelta
 
 # Custom permission class defined directly in views.py
 class IsOwnerOrAdmin(BasePermission):
@@ -26,11 +29,9 @@ class IsOwnerOrAdmin(BasePermission):
         # Read permissions are allowed to any request
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
-
         # Allow admins to edit any profile
         if request.user.is_staff or request.user.role == 'admin':
             return True
-            
         # Allow users to edit their own profile
         return obj.id == request.user.id
 
@@ -40,16 +41,21 @@ def generate_otp():
 
 def send_otp_email(email, otp):
     """Send OTP email"""
-    subject = "Password Reset OTP"
+    subject = "Password Reset OTP - E-commerce Platform"
     message = f"""
     Hello,
     
-    You have requested to reset your password. Your OTP is: {otp}
+    You have requested to reset your password for your e-commerce account.
     
-    This OTP is valid for 24 hours. If you didn't request this, please ignore this email.
+    Your OTP (One-Time Password) is: {otp}
+    
+    This OTP is valid for 24 hours. If you didn't request this password reset, please ignore this email and your password will remain unchanged.
+    
+    For security reasons, please do not share this OTP with anyone.
     
     Best regards,
-    Your E-commerce Team
+    E-commerce Team
+    awami.mail69@gmail.com
     """
     
     try:
@@ -64,6 +70,121 @@ def send_otp_email(email, otp):
     except Exception as e:
         print(f"Error sending email: {e}")
         return False
+
+def send_verification_email(user):
+    """Send email verification email"""
+    subject = "Verify Your Email Address"
+    message = f"""
+    Hello {user.username},
+    
+    Thank you for registering with our e-commerce platform! Please verify your email address by clicking the link below:
+    
+    {settings.FRONTEND_URL}/verify-email?token={user.email_verification_token}
+    
+    This link is valid for 24 hours. If you didn't create an account, please ignore this email.
+    
+    Best regards,
+    Your E-commerce Team
+    """
+    
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+        user.email_verification_sent_at = timezone.now()
+        user.save()
+        return True
+    except Exception as e:
+        print(f"Error sending verification email: {e}")
+        return False
+
+def send_resend_verification_email(user):
+    """Send a new verification email"""
+    # Generate new token
+    user.email_verification_token = uuid.uuid4()
+    user.save()
+    
+    return send_verification_email(user)
+
+@extend_schema(
+    responses={
+        200: OpenApiResponse(
+            description="User statistics",
+            response={
+                "type": "object",
+                "properties": {
+                    "total_users": {"type": "integer"},
+                    "active_users": {"type": "integer"},
+                    "inactive_users": {"type": "integer"},
+                    "verified_users": {"type": "integer"},
+                    "unverified_users": {"type": "integer"},
+                    "users_by_role": {
+                        "type": "object",
+                        "properties": {
+                            "customer": {"type": "integer"},
+                            "seller": {"type": "integer"},
+                            "admin": {"type": "integer"}
+                        }
+                    },
+                    "recent_registrations": {"type": "integer"}
+                }
+            }
+        ),
+        403: OpenApiResponse(description="Permission denied"),
+    },
+    description="Get user statistics for admin dashboard"
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def user_stats(request):
+    """
+    Get user statistics for admin dashboard
+    """
+    try:
+        # Get basic user counts
+        total_users = CustomUser.objects.count()
+        active_users = CustomUser.objects.filter(is_active=True).count()
+        inactive_users = CustomUser.objects.filter(is_active=False).count()
+        verified_users = CustomUser.objects.filter(email_verified=True).count()
+        unverified_users = CustomUser.objects.filter(email_verified=False).count()
+        
+        # Get users by role
+        users_by_role = CustomUser.objects.values('role').annotate(count=Count('role'))
+        role_counts = {
+            'customer': 0,
+            'seller': 0,
+            'admin': 0
+        }
+        
+        for role_data in users_by_role:
+            role_counts[role_data['role']] = role_data['count']
+        
+        # Get recent registrations (last 30 days)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_registrations = CustomUser.objects.filter(
+            date_joined__gte=thirty_days_ago
+        ).count()
+        
+        return Response({
+            'total_users': total_users,
+            'active_users': active_users,
+            'inactive_users': inactive_users,
+            'verified_users': verified_users,
+            'unverified_users': unverified_users,
+            'users_by_role': role_counts,
+            'recent_registrations': recent_registrations
+        })
+        
+    except Exception as e:
+        print(f"Error in user_stats: {e}")
+        return Response(
+            {'error': 'Failed to fetch user statistics'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 @extend_schema(
     parameters=[
@@ -173,7 +294,7 @@ def forgot_password(request):
             return Response({
                 'error': 'Failed to send OTP email'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+        
     except Exception as e:
         print(f"Error in forgot_password: {e}")
         return Response({
@@ -339,29 +460,59 @@ def user_login(request):
     Authenticate user and return JWT access token
     """
     serializer = LoginSerializer(data=request.data)
-    if not serializer.is_valid():
+    if serializer.is_valid():
+        username = serializer.validated_data['username']
+        password = serializer.validated_data['password']
+        
+        try:
+            user = CustomUser.objects.get(username=username)
+            
+            # Check if user is active
+            if not user.is_active:
+                return Response(
+                    {'error': 'Account is deactivated. Please contact support.'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Check if email is verified (for non-admin users)
+            if user.role != 'admin' and not user.is_staff and not user.email_verified:
+                return Response(
+                    {
+                        'error': 'Please verify your email address before logging in.',
+                        'email_verification_required': True,
+                        'email': user.email
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # Check password
+            if user.check_password(password):
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'role': user.role,
+                        'email_verified': user.email_verified,
+                        'is_staff': user.is_staff,
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {'error': 'Invalid credentials'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'Invalid credentials'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+    else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    username = serializer.validated_data.get('username')
-    password = serializer.validated_data.get('password')
-    
-    user = CustomUser.objects.filter(username=username).first()
-    
-    if user is None or not user.check_password(password):
-        return Response(
-            {'error': 'Invalid username or password'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-    
-    # Update last login time
-    user.last_login = timezone.now()
-    user.save(update_fields=['last_login'])
-    
-    refresh = RefreshToken.for_user(user)
-    return Response({
-        'access': str(refresh.access_token),
-        'user': CustomUserSerializer(user).data
-    })
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
@@ -387,20 +538,27 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return CustomUser.objects.none()
-            
+        
         # Admin can see all users
         if user.is_staff or user.role == 'admin':
             return CustomUser.objects.all()
-            
+        
         # Regular users can only see themselves
         return CustomUser.objects.filter(id=user.id)
     
     def perform_create(self, serializer):
-        password = serializer.validated_data.pop('password', None)
-        instance = serializer.save()
-        if password:
-            instance.set_password(password)
-            instance.save()
+        """Override to handle email verification"""
+        user = serializer.save()
+        
+        # Set email verification token
+        user.email_verification_token = uuid.uuid4()
+        user.save()
+        
+        # Send verification email
+        if user.email:
+            send_verification_email(user)
+        
+        return user
     
     def perform_update(self, serializer):
         password = serializer.validated_data.pop('password', None)
@@ -431,65 +589,66 @@ class UserViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            # Use a direct SQL approach to delete the user
-            # This avoids ORM cascading which might try to access non-existent tables
-            with connection.cursor() as cursor:
-                # Get the user ID for use in queries
+            with transaction.atomic():
                 user_id = instance.id
                 
-                # List of tables to check and clean up before deleting the user
-                # We'll only delete from tables that actually exist
-                tables_to_check = [
-                    # Format: (table_name, column_name)
-                    ('carts_cart', 'customer_id'),
-                    ('products_product', 'seller_id'),
-                    ('products_category', 'creator_id'),
-                    ('products_review', 'user_id'),
-                    ('products_productview', 'user_id'),
-                    ('orders_order', 'user_id'),
-                    ('shipping_shippingmethod', 'creator_id'),
-                    ('shipping_shippingaddress', 'user_id'),
-                    ('analytics_useractivity', 'user_id'),  # Added this table
-                    # Add any other tables that might reference users
-                ]
-                
-                # Check each table and delete related records if the table exists
-                for table_name, column_name in tables_to_check:
-                    try:
-                        # Check if the table exists
-                        cursor.execute(f"""
-                            SELECT EXISTS (
-                                SELECT FROM information_schema.tables 
-                                WHERE table_name = %s
-                            );
-                        """, [table_name])
-                        table_exists = cursor.fetchone()[0]
-                        
-                        if table_exists:
-                            # Check if the column exists in the table
+                # Get all table names that might reference the user
+                with connection.cursor() as cursor:
+                    # Get all foreign key constraints that reference the users table
+                    cursor.execute("""
+                        SELECT DISTINCT
+                            tc.table_name,
+                            kcu.column_name
+                        FROM information_schema.table_constraints tc
+                        JOIN information_schema.key_column_usage kcu
+                            ON tc.constraint_name = kcu.constraint_name
+                        JOIN information_schema.constraint_column_usage ccu
+                            ON ccu.constraint_name = tc.constraint_name
+                        WHERE tc.constraint_type = 'FOREIGN KEY'
+                            AND ccu.table_name = 'users_customuser'
+                            AND tc.table_schema = 'public';
+                    """)
+                    
+                    foreign_key_tables = cursor.fetchall()
+                    
+                    # Delete from each table that references the user
+                    for table_name, column_name in foreign_key_tables:
+                        try:
+                            cursor.execute(f'DELETE FROM "{table_name}" WHERE "{column_name}" = %s', [user_id])
+                            print(f"Deleted records from {table_name} where {column_name} = {user_id}")
+                        except Exception as e:
+                            print(f"Error deleting from {table_name}: {str(e)}")
+                            # Continue with other tables even if one fails
+                    
+                    # Also handle some common tables that might not show up in the query
+                    additional_tables = [
+                        ('auth_user_groups', 'user_id'),
+                        ('auth_user_user_permissions', 'user_id'),
+                        ('django_admin_log', 'user_id'),
+                    ]
+                    
+                    for table_name, column_name in additional_tables:
+                        try:
                             cursor.execute(f"""
                                 SELECT EXISTS (
-                                    SELECT FROM information_schema.columns 
-                                    WHERE table_name = %s AND column_name = %s
+                                    SELECT FROM information_schema.tables 
+                                    WHERE table_name = %s
                                 );
-                            """, [table_name, column_name])
-                            column_exists = cursor.fetchone()[0]
+                            """, [table_name])
                             
-                            if column_exists:
-                                # Delete records where the user is referenced
-                                cursor.execute(f"""
-                                    DELETE FROM "{table_name}" 
-                                    WHERE "{column_name}" = %s
-                                """, [user_id])
-                    except Exception as e:
-                        # Log the error but continue with other tables
-                        print(f"Error handling {table_name}: {str(e)}")
+                            if cursor.fetchone()[0]:  # Table exists
+                                cursor.execute(f'DELETE FROM "{table_name}" WHERE "{column_name}" = %s', [user_id])
+                                print(f"Deleted records from {table_name} where {column_name} = {user_id}")
+                        except Exception as e:
+                            print(f"Error deleting from {table_name}: {str(e)}")
                 
                 # Finally, delete the user
-                cursor.execute('DELETE FROM "users_customuser" WHERE "id" = %s', [user_id])
+                instance.delete()
                 
             return Response(status=status.HTTP_204_NO_CONTENT)
+            
         except Exception as e:
+            print(f"Error deleting user: {str(e)}")
             return Response(
                 {'error': f'Failed to delete user: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -532,3 +691,139 @@ class UserViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(inactive_users, many=True)
         return Response(serializer.data)
+
+@extend_schema(
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'token': {'type': 'string', 'description': 'Email verification token'}
+            },
+            'required': ['token']
+        }
+    },
+    responses={
+        200: OpenApiResponse(
+            description="Email verified successfully",
+            response={"type": "object", "properties": {
+                "message": {"type": "string"},
+                "user": {"type": "object"}
+            }}
+        ),
+        400: OpenApiResponse(description="Invalid or expired token"),
+        404: OpenApiResponse(description="Token not found"),
+    },
+    description="Verify email address with token"
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_email(request):
+    """
+    Verify email address with token
+    """
+    token = request.data.get('token')
+    
+    if not token:
+        return Response(
+            {'error': 'Token is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Find user with this verification token
+        user = CustomUser.objects.get(email_verification_token=token)
+        
+        # Check if token is still valid (24 hours)
+        if user.email_verification_sent_at:
+            time_diff = timezone.now() - user.email_verification_sent_at
+            if time_diff > timedelta(hours=24):
+                return Response(
+                    {'error': 'Verification token has expired. Please request a new one.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Mark email as verified
+        user.email_verified = True
+        user.email_verification_token = None
+        user.email_verification_sent_at = None
+        user.save()
+        
+        return Response({
+            'message': 'Email verified successfully! You can now log in to your account.',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'email_verified': user.email_verified
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except CustomUser.DoesNotExist:
+        return Response(
+            {'error': 'Invalid verification token'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@extend_schema(
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'email': {'type': 'string', 'description': 'User email address'}
+            },
+            'required': ['email']
+        }
+    },
+    responses={
+        200: OpenApiResponse(
+            description="Verification email sent successfully",
+            response={"type": "object", "properties": {
+                "message": {"type": "string"},
+                "email": {"type": "string"}
+            }}
+        ),
+        400: OpenApiResponse(description="Bad request"),
+        404: OpenApiResponse(description="Email not found"),
+    },
+    description="Resend email verification"
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_verification_email(request):
+    """
+    Resend email verification
+    """
+    email = request.data.get('email')
+    
+    if not email:
+        return Response(
+            {'error': 'Email is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = CustomUser.objects.get(email=email)
+        
+        if user.email_verified:
+            return Response(
+                {'error': 'Email is already verified'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Send new verification email
+        if send_resend_verification_email(user):
+            return Response({
+                'message': 'Verification email sent successfully',
+                'email': email
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {'error': 'Failed to send verification email'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+    except CustomUser.DoesNotExist:
+        return Response(
+            {'error': 'Email not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )

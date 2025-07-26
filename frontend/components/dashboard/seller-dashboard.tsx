@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useSelector } from "react-redux"
 import { useSearchParams } from "next/navigation"
 import type { RootState } from "@/store"
@@ -26,7 +26,7 @@ import {
   Cell,
   type PieLabelRenderProps,
 } from "recharts"
-import { Users, ShoppingBag, Package, DollarSign, ArrowUpRight, ArrowDownRight, ArrowRight, Plus } from "lucide-react"
+import { Users, ShoppingBag, Package, DollarSign, ArrowRight, Plus } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import type { Product } from "@/app/types/product"
@@ -53,9 +53,9 @@ export default function SellerDashboard() {
   const user = useSelector((state: RootState) => state.auth.user)
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortOrder, setSortOrder] = useState<string>("newest");
-  const [productSortOrder, setProductSortOrder] = useState<string>("newest");
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [sortOrder, setSortOrder] = useState<string>("newest")
+  const [productSortOrder, setProductSortOrder] = useState<string>("newest")
 
   useEffect(() => {
     const tabParam = searchParams.get("tab")
@@ -76,13 +76,14 @@ export default function SellerDashboard() {
   )
 
   const sortedProducts = [...(products || [])].sort((a, b) => {
-    if (productSortOrder === "newest") return new Date(b.created_at ?? '').getTime() - new Date(a.created_at ?? '').getTime();
-    if (productSortOrder === "price_asc") return Number(a.price) - Number(b.price);
-    if (productSortOrder === "price_desc") return Number(b.price) - Number(a.price);
-    if (productSortOrder === "name_asc") return a.name.localeCompare(b.name);
-    if (productSortOrder === "name_desc") return b.name.localeCompare(a.name);
-    return 0;
-  });
+    if (productSortOrder === "newest")
+      return new Date(b.created_at ?? "").getTime() - new Date(a.created_at ?? "").getTime()
+    if (productSortOrder === "price_asc") return Number(a.price) - Number(b.price)
+    if (productSortOrder === "price_desc") return Number(b.price) - Number(a.price)
+    if (productSortOrder === "name_asc") return a.name.localeCompare(b.name)
+    if (productSortOrder === "name_desc") return b.name.localeCompare(a.name)
+    return 0
+  })
 
   const { data: stats, isLoading: isLoadingStats } = useGetDashboardStatsQuery()
 
@@ -103,18 +104,19 @@ export default function SellerDashboard() {
   })
 
   const { data: lowStockProducts, isLoading: isLoadingLowStock } = useGetLowStockProductsQuery(5)
+
   const [deleteProduct, { isLoading: isDeletingProduct }] = useDeleteProductMutation()
 
   // Filter and sort orders based on dropdowns
   const filteredOrders = (orders || [])
-    .filter(order => statusFilter === "all" || order.status === statusFilter)
+    .filter((order) => statusFilter === "all" || order.status === statusFilter)
     .sort((a, b) => {
-      if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (sortOrder === "highest") return Number(b.total_price || 0) - Number(a.total_price || 0);
-      if (sortOrder === "lowest") return Number(a.total_price || 0) - Number(b.total_price || 0);
-      return 0;
-    });
+      if (sortOrder === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      if (sortOrder === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      if (sortOrder === "highest") return Number(b.total_price || 0) - Number(a.total_price || 0)
+      if (sortOrder === "lowest") return Number(a.total_price || 0) - Number(b.total_price || 0)
+      return 0
+    })
 
   const handleRefreshProducts = () => {
     refetchProducts()
@@ -146,17 +148,27 @@ export default function SellerDashboard() {
     }
   }
 
-  // For sales overview and analytics charts, use stats.sales_by_month only.
-  const salesData = stats?.sales_by_month || [];
+  // Use backend analytics data for sales performance
+  const salesData = useMemo(() => {
+    if (!stats?.sales_by_month || stats.sales_by_month.length === 0) return []
 
-  const topProducts =
-    products
-      ?.slice(0, 5)
-      .sort((a: Product, b: Product) => (b.stock || 0) - (a.stock || 0))
-      .map((product: Product) => ({
-        name: product.name,
-        value: product.stock || 0,
-      })) || []
+    return stats.sales_by_month.map((month) => ({
+      name: month.name,
+      sales: month.sales,
+      orders: month.orders,
+    }))
+  }, [stats?.sales_by_month])
+
+  // Use backend analytics data for top selling products
+  const topProducts = useMemo(() => {
+    if (!stats?.top_selling_products || stats.top_selling_products.length === 0) return []
+
+    return stats.top_selling_products.map((product) => ({
+      name: product.product_name,
+      value: product.total_sales,
+      quantity: product.total_quantity,
+    }))
+  }, [stats?.top_selling_products])
 
   const COLORS = ["#F3C998", "#F3C998AA", "#F3C99877", "#F3C99855", "#F3C99833"]
 
@@ -180,8 +192,8 @@ export default function SellerDashboard() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                           radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                            radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
           }}
         ></div>
       </div>
@@ -260,7 +272,9 @@ export default function SellerDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Sales</p>
-                          <h3 className="text-3xl font-bold text-white">${formatCurrency(stats?.total_sales || 0)}</h3>
+                          <h3 className="text-3xl font-bold text-white">
+                            ${formatCurrency(stats?.total_sales || 0)}
+                          </h3>
                         </div>
                       </div>
                     </div>
@@ -279,7 +293,7 @@ export default function SellerDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Orders</p>
-                          <h3 className="text-3xl font-bold text-white">{orders?.length || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">{stats?.total_orders || 0}</h3>
                         </div>
                       </div>
                     </div>
@@ -298,7 +312,7 @@ export default function SellerDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Total Products</p>
-                          <h3 className="text-3xl font-bold text-white">{products?.length || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">{stats?.total_products || 0}</h3>
                         </div>
                       </div>
                     </div>
@@ -317,7 +331,9 @@ export default function SellerDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-300 mb-1">Customers</p>
-                          <h3 className="text-3xl font-bold text-white">{stats?.total_customers || orders?.length || 0}</h3>
+                          <h3 className="text-3xl font-bold text-white">
+                            {stats?.total_customers || 0}
+                          </h3>
                         </div>
                       </div>
                     </div>
@@ -337,7 +353,7 @@ export default function SellerDashboard() {
                         <LineChart data={salesData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
                           <XAxis dataKey="name" stroke="#F3C998" />
-                          <YAxis stroke="#F3C998" />
+                          <YAxis stroke="#F3C998" domain={[0, 'dataMax + 10']} />
                           <Tooltip
                             contentStyle={{
                               backgroundColor: "#1D212D",
@@ -352,6 +368,8 @@ export default function SellerDashboard() {
                             stroke="#F3C998"
                             strokeWidth={3}
                             activeDot={{ r: 8, fill: "#F3C998" }}
+                            connectNulls={false}
+                            dot={{ fill: "#F3C998", strokeWidth: 2, r: 4 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>
@@ -365,7 +383,7 @@ export default function SellerDashboard() {
                 <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
                   <CardHeader className="pb-6">
                     <CardTitle className="text-white text-2xl font-bold">Top Products</CardTitle>
-                    <CardDescription className="text-gray-300 text-lg">Products by inventory level</CardDescription>
+                    <CardDescription className="text-gray-300 text-lg">Products by sales revenue</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-80">
@@ -427,7 +445,12 @@ export default function SellerDashboard() {
                               className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                             >
                               <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
-                              <TableCell className="text-gray-300 text-base">{order.customer_full_name || order.user_username || order.customer_username || 'Customer'}</TableCell>
+                              <TableCell className="text-gray-300 text-base">
+                                {order.customer_full_name ||
+                                  order.user_username ||
+                                  order.customer_username ||
+                                  "Customer"}
+                              </TableCell>
                               <TableCell className="text-gray-300 text-base">
                                 {new Date(order.created_at).toLocaleDateString()}
                               </TableCell>
@@ -447,7 +470,10 @@ export default function SellerDashboard() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right text-white font-semibold text-base">
-                                ${typeof order.total_price === 'number' ? order.total_price.toFixed(2) : Number(order.total_price).toFixed(2)}
+                                $
+                                {typeof order.total_price === "number"
+                                  ? order.total_price.toFixed(2)
+                                  : Number(order.total_price).toFixed(2)}
                               </TableCell>
                             </TableRow>
                           ))
@@ -464,8 +490,8 @@ export default function SellerDashboard() {
                       <Button
                         size="lg"
                         className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
-                        style={{ backgroundColor: '#F3C998' }}
-                        onClick={() => setActiveTab('orders')}
+                        style={{ backgroundColor: "#F3C998" }}
+                        onClick={() => setActiveTab("orders")}
                       >
                         View All Orders
                         <ArrowRight className="ml-2 h-5 w-5" />
@@ -537,8 +563,8 @@ export default function SellerDashboard() {
                       <Button
                         size="lg"
                         className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
-                        style={{ backgroundColor: '#F3C998' }}
-                        onClick={() => setActiveTab('products')}
+                        style={{ backgroundColor: "#F3C998" }}
+                        onClick={() => setActiveTab("products")}
                       >
                         Manage Products
                         <ArrowRight className="ml-2 h-5 w-5" />
@@ -560,7 +586,7 @@ export default function SellerDashboard() {
                     <Button
                       size="lg"
                       className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
-                      style={{ backgroundColor: '#F3C998' }}
+                      style={{ backgroundColor: "#F3C998" }}
                       onClick={handleRefreshProducts}
                     >
                       Refresh
@@ -592,11 +618,21 @@ export default function SellerDashboard() {
                         <SelectValue placeholder="Sort by..." />
                       </SelectTrigger>
                       <SelectContent className="bg-[#2A2F3A] border-white/20">
-                        <SelectItem value="newest" className="text-white hover:bg-white/10">Newest Arrivals</SelectItem>
-                        <SelectItem value="price_asc" className="text-white hover:bg-white/10">Price: Low to High</SelectItem>
-                        <SelectItem value="price_desc" className="text-white hover:bg-white/10">Price: High to Low</SelectItem>
-                        <SelectItem value="name_asc" className="text-white hover:bg-white/10">Name: A to Z</SelectItem>
-                        <SelectItem value="name_desc" className="text-white hover:bg-white/10">Name: Z to A</SelectItem>
+                        <SelectItem value="newest" className="text-white hover:bg-white/10">
+                          Newest Arrivals
+                        </SelectItem>
+                        <SelectItem value="price_asc" className="text-white hover:bg-white/10">
+                          Price: Low to High
+                        </SelectItem>
+                        <SelectItem value="price_desc" className="text-white hover:bg-white/10">
+                          Price: High to Low
+                        </SelectItem>
+                        <SelectItem value="name_asc" className="text-white hover:bg-white/10">
+                          Name: A to Z
+                        </SelectItem>
+                        <SelectItem value="name_desc" className="text-white hover:bg-white/10">
+                          Name: Z to A
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -627,7 +663,7 @@ export default function SellerDashboard() {
                               <TableCell className="font-medium text-white text-base">#{product.id}</TableCell>
                               <TableCell className="text-white text-base">{product.name}</TableCell>
                               <TableCell className="text-gray-300 text-base">
-                              {product.category_details?.name || "Uncategorized"}
+                                {product.category_details?.name || product.category_name || "Uncategorized"}
                               </TableCell>
                               <TableCell>
                                 <Badge
@@ -705,7 +741,7 @@ export default function SellerDashboard() {
                     <Button
                       size="lg"
                       className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
-                      style={{ backgroundColor: '#F3C998' }}
+                      style={{ backgroundColor: "#F3C998" }}
                       onClick={() => refetch()}
                     >
                       Refresh
@@ -751,6 +787,7 @@ export default function SellerDashboard() {
                         </Select>
                       </div>
                     </div>
+
                     {isLoadingOrders ? (
                       <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F3C998]" />
@@ -777,8 +814,11 @@ export default function SellerDashboard() {
                               >
                                 <TableCell className="font-medium text-white text-base">#{order.id}</TableCell>
                                 <TableCell className="text-gray-300 text-base">
-                                    {order.customer_full_name || order.user_username || order.customer_username || "Customer"}
-                                  </TableCell>
+                                  {order.customer_full_name ||
+                                    order.user_username ||
+                                    order.customer_username ||
+                                    "Customer"}
+                                </TableCell>
                                 <TableCell className="text-gray-300 text-base">
                                   {new Date(order.created_at).toLocaleDateString()}
                                 </TableCell>
@@ -799,7 +839,10 @@ export default function SellerDashboard() {
                                 </TableCell>
                                 <TableCell className="text-gray-300 text-base">{order.items?.length || 0}</TableCell>
                                 <TableCell className="text-right text-white font-semibold text-base">
-                                  ${typeof order.total_price === 'number' ? order.total_price.toFixed(2) : Number(order.total_price).toFixed(2)}
+                                  $
+                                  {typeof order.total_price === "number"
+                                    ? order.total_price.toFixed(2)
+                                    : Number(order.total_price).toFixed(2)}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex space-x-3">
@@ -814,8 +857,8 @@ export default function SellerDashboard() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
-                                      style={{ backgroundColor: '#F3C998' }}
+                                      className="text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg bg-transparent"
+                                      style={{ backgroundColor: "#F3C998" }}
                                       onClick={() => {
                                         alert(`Update status for order #${order.id}`)
                                       }}
@@ -856,10 +899,11 @@ export default function SellerDashboard() {
                   <CardContent>
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={salesData}>
+                        <LineChart data={salesData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
                           <XAxis dataKey="name" stroke="#F3C998" />
-                          <YAxis stroke="#F3C998" />
+                          <YAxis yAxisId="left" stroke="#F3C998" domain={[0, 'dataMax + 10']} />
+                          <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" domain={[0, 'dataMax + 1']} />
                           <Tooltip
                             contentStyle={{
                               backgroundColor: "#1D212D",
@@ -868,8 +912,25 @@ export default function SellerDashboard() {
                               color: "#ffffff",
                             }}
                           />
-                          <Bar dataKey="sales" fill="#F3C998" name="Sales ($)" />
-                        </BarChart>
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="sales"
+                            stroke="#F3C998"
+                            strokeWidth={3}
+                            activeDot={{ r: 8, fill: "#F3C998" }}
+                            name="Sales ($)"
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="orders"
+                            stroke="#82ca9d"
+                            strokeWidth={2}
+                            activeDot={{ r: 6, fill: "#82ca9d" }}
+                            name="Orders"
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
                       {salesData.length === 0 && (
                         <div className="text-center py-8 text-gray-400 text-lg">No sales data available.</div>
@@ -881,39 +942,42 @@ export default function SellerDashboard() {
                 <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
                   <CardHeader className="pb-6">
                     <CardTitle className="text-white text-2xl font-bold">Top Selling Products</CardTitle>
-                    <CardDescription className="text-gray-300 text-lg">Products with highest sales</CardDescription>
+                    <CardDescription className="text-gray-300 text-lg">Products with highest sales revenue</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-white/20 hover:bg-white/5">
-                          <TableHead className="text-gray-300 font-semibold text-base">Product</TableHead>
-                          <TableHead className="text-gray-300 font-semibold text-base">Units Sold</TableHead>
-                          <TableHead className="text-gray-300 font-semibold text-base text-right">Revenue</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {stats?.top_selling_products?.map(
-                          (product: {
-                            product_id: number
-                            product_name: string
-                            total_quantity: number
-                            total_sales: number
-                          }) => (
+                    {topProducts && topProducts.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-white/20 hover:bg-white/5">
+                            <TableHead className="text-gray-300 font-semibold text-base">Product</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base text-center">Quantity</TableHead>
+                            <TableHead className="text-gray-300 font-semibold text-base text-right">Revenue</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {topProducts.map((product, index) => (
                             <TableRow
-                              key={product.product_id}
+                              key={index}
                               className="border-white/10 hover:bg-white/5 transition-colors duration-300"
                             >
-                              <TableCell className="font-medium text-white text-base">{product.product_name}</TableCell>
-                              <TableCell className="text-gray-300 text-base">{product.total_quantity}</TableCell>
+                              <TableCell className="font-medium text-white text-base">
+                                {product.name}
+                              </TableCell>
+                              <TableCell className="text-center text-white font-semibold text-base">
+                                {product.quantity || 0}
+                              </TableCell>
                               <TableCell className="text-right text-white font-semibold text-base">
-                                ${formatCurrency(product.total_sales)}
+                                ${formatCurrency(product.value)}
                               </TableCell>
                             </TableRow>
-                          ),
-                        )}
-                      </TableBody>
-                    </Table>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400 text-lg">
+                        No top selling products data available
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -929,26 +993,25 @@ export default function SellerDashboard() {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={stats?.sales_by_category || [
-                              { name: "Electronics", value: 4000 },
-                              { name: "Clothing", value: 3000 },
-                              { name: "Home", value: 2000 },
-                              { name: "Books", value: 1000 },
-                            ]}
+                            data={
+                              stats && stats.sales_by_category && stats.sales_by_category.length > 0
+                                ? stats.sales_by_category
+                                : [{ name: "No Data", value: 1 }]
+                            }
                             cx="50%"
                             cy="50%"
                             labelLine={false}
                             outerRadius={80}
                             fill="#F3C998"
                             dataKey="value"
-                            label={({ name, percent }: PieLabelRenderProps) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
+                            label={({ name, percent }: PieLabelRenderProps) =>
+                              `${name}: ${((percent || 0) * 100).toFixed(1)}%`
+                            }
                           >
-                            {(stats?.sales_by_category || [
-                              { name: "Electronics", value: 4000 },
-                              { name: "Clothing", value: 3000 },
-                              { name: "Home", value: 2000 },
-                              { name: "Books", value: 1000 },
-                            ]).map((entry: { name: string; value: number }, index: number) => (
+                            {(stats && stats.sales_by_category && stats.sales_by_category.length > 0
+                              ? stats.sales_by_category
+                              : [{ name: "No Data", value: 1 }]
+                            ).map((entry: { name: string; value: number }, index: number) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
@@ -962,7 +1025,7 @@ export default function SellerDashboard() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      {(!stats?.sales_by_category || stats.sales_by_category.length === 0) && (
+                      {(!stats || !stats.sales_by_category || stats.sales_by_category.length === 0) && (
                         <div className="text-center py-8 text-gray-400 text-lg">No category sales data available.</div>
                       )}
                     </div>

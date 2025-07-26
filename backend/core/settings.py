@@ -205,3 +205,19 @@ if os.name == 'nt':  # Windows dev only
 BLENDER_EXECUTABLE_PATH = r"/home/abdullah/Applications/blender-4.0.2-linux-x64/blender"
 MAX_GENERATION_QUEUE_SIZE = env('MAX_GENERATION_QUEUE_SIZE', default=10)
 GENERATION_TIMEOUT_MINUTES = env('GENERATION_TIMEOUT_MINUTES', default=30)
+
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='awami.mail69@gmail.com')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='hpwu ebpf zezb xfzz')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='awami.mail69@gmail.com')
+
+# For development/testing, you can use console backend instead
+if DEBUG and env.bool('USE_CONSOLE_EMAIL', default=False):
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Frontend URL for email verification links
+FRONTEND_URL = env('FRONTEND_URL', default='https://ecommerce-store-psi-dusky.vercel.app')

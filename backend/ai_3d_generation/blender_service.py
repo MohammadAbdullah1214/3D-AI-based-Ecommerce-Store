@@ -4,6 +4,7 @@ import tempfile
 import time
 import logging
 import json
+import sys
 from PIL import Image, ImageEnhance
 import numpy as np
 from scipy import ndimage
@@ -30,6 +31,11 @@ class BlenderModelGenerator:
             blender_path = settings.BLENDER_EXECUTABLE_PATH
             if os.path.exists(blender_path):
                 return blender_path
+        
+        # Try environment variable
+        env_path = os.environ.get('BLENDER_EXECUTABLE_PATH')
+        if env_path and os.path.exists(env_path):
+            return env_path
         
         # Your specific path
         specific_path = r"/home/abdullah/Applications/blender-4.0.2-linux-x64/blender"
@@ -60,7 +66,7 @@ class BlenderModelGenerator:
             except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
                 continue
         
-        raise RuntimeError("Blender executable not found. Please install Blender or check the path.")
+        raise RuntimeError("Blender executable not found. Please install Blender or set BLENDER_EXECUTABLE_PATH environment variable.")
     
     def generate_3d_model(self, images, detail_level='medium', clothing_type='tshirt', progress_callback=None):
         """
@@ -204,7 +210,9 @@ class BlenderModelGenerator:
 import bpy
 import bmesh
 import os
-from mathutils import Vector
+import sys
+from mathutils import Vector, Euler
+from math import radians
 
 print("Starting Blender 3D generation script for {clothing_type}...")
 
@@ -220,9 +228,9 @@ print("Scene setup complete")
 
 # Detail level settings
 detail_settings = {{
-    "low": {{"subdivisions": 1, "resolution": 256}},
-    "medium": {{"subdivisions": 2, "resolution": 512}},
-    "high": {{"subdivisions": 3, "resolution": 1024}}
+    "low": {{"subdivisions": 1, "resolution": 256, "vertices": 16}},
+    "medium": {{"subdivisions": 2, "resolution": 512, "vertices": 32}},
+    "high": {{"subdivisions": 3, "resolution": 1024, "vertices": 64}}
 }}
 
 current_detail = detail_settings["{detail_level}"]
@@ -230,297 +238,417 @@ print(f"Using detail level: {detail_level}")
 
 # Create base mesh based on clothing type
 clothing_type = "{clothing_type}"
-print(f"Creating {clothing_type} geometry...")
+print(f"Creating {{clothing_type}} geometry...")
 
-if clothing_type == "tshirt":
-    # --- Create a more realistic, curved T-shirt model ---
-    
-    # 1. Create the torso with enough vertices for curves
-    bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.9, depth=1.8, location=(0, 0, 0))
-    torso = bpy.context.active_object
-    torso.name = "TShirtBody"
-
-    # 2. Model the torso with curves
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_mode(type="VERT")
-    
-    # Add edge loops for shaping using bmesh for background compatibility
-    bm = bmesh.from_edit_mesh(torso.data)
-    bm.edges.ensure_lookup_table()
-    
-    # Select the vertical edges to create horizontal loops
-    edges_to_cut = [e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 1.5]
-    
-    bmesh.ops.subdivide_edges(
-        bm,
-        edges=edges_to_cut,
-        cuts=4,
-        use_grid_fill=True
+def create_tshirt():
+    """Create a realistic T-shirt model"""
+    # Create the main body
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=current_detail["vertices"], 
+        radius=1.0, 
+        depth=1.8, 
+        location=(0, 0, 0)
     )
-    bmesh.update_edit_mesh(torso.data)
-    
-    # Shoulder flare
-    for v in bm.verts:
-        if 0.7 < v.co.z < 0.8:
-            v.select = True
-    bpy.ops.transform.resize(value=(1.1, 1.1, 1), orient_type='GLOBAL')
-    
-    # Waist taper
-    for v in bm.verts:
-        if -0.1 < v.co.z < 0.1:
-            v.select = True
-    bpy.ops.transform.resize(value=(0.9, 0.9, 1), orient_type='GLOBAL')
-    bpy.ops.mesh.select_all(action='DESELECT')
-
-    # 3. Create neck and collar
-    bm.faces.ensure_lookup_table()
-    top_face = max(bm.faces, key=lambda f: f.calc_center_median().z)
-    top_face.select = True
-    bpy.ops.mesh.delete(type='FACE')
-    
-    bpy.ops.mesh.select_mode(type="EDGE")
-    for edge in bm.edges:
-        if all(v.co.z > 0.8 for v in edge.verts) and len(edge.link_loops) == 1:
-            edge.select = True
-    
-    bpy.ops.mesh.extrude_region_move()
-    bpy.ops.transform.resize(value=(0.9, 0.9, 1))
-    bpy.ops.transform.translate(value=(0, 0, 0.05))
-    
-    # 4. Create and attach sleeves
-    bpy.ops.object.mode_set(mode='OBJECT')
-    
-    # Create a single, more detailed sleeve
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.28, depth=0.8, location=(0.9, 0, 0.6))
-    sleeve1 = bpy.context.active_object
-    sleeve1.rotation_euler = (0, 0.8, 0) # Angle down
-    
-    # Use boolean modifier to join
-    bool_mod = torso.modifiers.new(name="Sleeve1Bool", type='BOOLEAN')
-    bool_mod.operation = 'UNION'
-    bool_mod.object = sleeve1
-    bpy.context.view_layer.objects.active = torso
-    bpy.ops.object.modifier_apply(modifier=bool_mod.name)
-    sleeve1.hide_set(True) # Hide original sleeve
-    
-    # Repeat for second sleeve
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.28, depth=0.8, location=(-0.9, 0, 0.6))
-    sleeve2 = bpy.context.active_object
-    sleeve2.rotation_euler = (0, -0.8, 0)
-    
-    bool_mod = torso.modifiers.new(name="Sleeve2Bool", type='BOOLEAN')
-    bool_mod.operation = 'UNION'
-    bool_mod.object = sleeve2
-    bpy.context.view_layer.objects.active = torso
-    bpy.ops.object.modifier_apply(modifier=bool_mod.name)
-    sleeve2.hide_set(True)
-    
-    obj = torso
-
-    # 5. UV Unwrap the final model
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_all(action='SELECT')
-    bpy.ops.uv.smart_project(angle_limit=66, island_margin=0.02)
-    bpy.ops.object.mode_set(mode='OBJECT')
-    
-    # 6. Smooth the model
-    bpy.ops.object.shade_smooth()
-    
-elif clothing_type == "pants":
-    # Create pants base (two cylinders for legs)
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.4, depth=2, location=(0.2, 0, 0))
-    leg1 = bpy.context.active_object
-    leg1.name = "Leg1"
-    
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.4, depth=2, location=(-0.2, 0, 0))
-    leg2 = bpy.context.active_object
-    leg2.name = "Leg2"
-    
-    # Add waistband
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.6, depth=0.3, location=(0, 0, 1))
-    waist = bpy.context.active_object
-    waist.name = "Waist"
-    
-    # Join all parts
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.context.view_layer.objects.active = leg1
-    bpy.ops.object.join()
-    
-elif clothing_type == "shirts":
-    # Create shirt base (similar to t-shirt but with collar)
-    bpy.ops.mesh.primitive_cylinder_add(radius=1, depth=2)
     body = bpy.context.active_object
-    body.name = "ShirtBody"
+    body.name = "TShirtBody"
     
-    # Add sleeves
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.3, depth=1.5, location=(0.8, 0, 0))
-    sleeve1 = bpy.context.active_object
-    sleeve1.name = "Sleeve1"
-    sleeve1.rotation_euler = (0, 1.5708, 0)
+    # Enter edit mode for body shaping
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.mode_set(mode='EDIT')
     
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.3, depth=1.5, location=(-0.8, 0, 0))
-    sleeve2 = bpy.context.active_object
-    sleeve2.name = "Sleeve2"
-    sleeve2.rotation_euler = (0, -1.5708, 0)
+    # Get bmesh representation
+    bm = bmesh.from_edit_mesh(body.data)
+    bm.faces.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+    
+    # Shape the torso - taper at waist, flare at shoulders
+    for vert in bm.verts:
+        z = vert.co.z
+        # Shoulder area - slight flare
+        if 0.6 < z < 0.9:
+            scale_factor = 1.0 + (z - 0.6) * 0.2
+            vert.co.x *= scale_factor
+            vert.co.y *= scale_factor
+        # Waist area - taper
+        elif -0.2 < z < 0.2:
+            scale_factor = 0.85 + abs(z) * 0.3
+            vert.co.x *= scale_factor
+            vert.co.y *= scale_factor
+    
+    # Create neck opening
+    top_faces = [f for f in bm.faces if f.calc_center_median().z > 0.8]
+    for face in top_faces:
+        face.select = True
+    bmesh.ops.delete(bm, geom=top_faces, type='FACE')
+    
+    # Create collar
+    neck_edges = [e for e in bm.edges if len(e.link_faces) == 1 and e.calc_center_median().z > 0.8]
+    if neck_edges:
+        bmesh.ops.extrude_edge_only(bm, edges=neck_edges)
+        for edge in neck_edges:
+            for vert in edge.verts:
+                vert.co.z += 0.05
+                vert.co *= 0.95
+    
+    bmesh.update_edit_mesh(body.data)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Create sleeves
+    for side in [-1, 1]:
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=current_detail["vertices"]//2,
+            radius=0.25,
+            depth=0.6,
+            location=(side * 0.85, 0, 0.5)
+        )
+        sleeve = bpy.context.active_object
+        sleeve.name = f"Sleeve_{{side}}"
+        sleeve.rotation_euler = (0, side * radians(15), 0)
+        
+        # Join sleeve to body
+        bpy.ops.object.select_all(action='DESELECT')
+        body.select_set(True)
+        sleeve.select_set(True)
+        bpy.context.view_layer.objects.active = body
+        bpy.ops.object.join()
+    
+    return body
+
+def create_pants():
+    """Create pants model"""
+    # Create waistband
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=current_detail["vertices"],
+        radius=0.7,
+        depth=0.2,
+        location=(0, 0, 0.8)
+    )
+    waist = bpy.context.active_object
+    waist.name = "Waistband"
+    
+    # Create legs
+    for side in [-0.25, 0.25]:
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=current_detail["vertices"]//2,
+            radius=0.35,
+            depth=1.8,
+            location=(side, 0, -0.1)
+        )
+        leg = bpy.context.active_object
+        leg.name = f"Leg_{{side}}"
+        
+        # Taper the leg
+        bpy.context.view_layer.objects.active = leg
+        bpy.ops.object.mode_set(mode='EDIT')
+        bm = bmesh.from_edit_mesh(leg.data)
+        for vert in bm.verts:
+            if vert.co.z < -0.5:  # Lower part of leg
+                scale = 0.7 + (vert.co.z + 1.0) * 0.3
+                vert.co.x *= scale
+                vert.co.y *= scale
+        bmesh.update_edit_mesh(leg.data)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # Join to waist
+        bpy.ops.object.select_all(action='DESELECT')
+        waist.select_set(True)
+        leg.select_set(True)
+        bpy.context.view_layer.objects.active = waist
+        bpy.ops.object.join()
+    
+    return waist
+
+def create_shirt():
+    """Create dress shirt model"""
+    # Start with t-shirt base
+    shirt = create_tshirt()
+    shirt.name = "DressShirt"
+    
+    # Make sleeves longer
+    bpy.context.view_layer.objects.active = shirt
+    bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.from_edit_mesh(shirt.data)
+    
+    # Extend sleeve vertices
+    for vert in bm.verts:
+        if abs(vert.co.x) > 0.6 and abs(vert.co.y) < 0.3:  # Sleeve area
+            vert.co.x *= 1.3  # Make sleeves longer
+    
+    bmesh.update_edit_mesh(shirt.data)
+    bpy.ops.object.mode_set(mode='OBJECT')
     
     # Add collar
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.3, minor_radius=0.1, location=(0, 0, 1.2))
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=0.35,
+        minor_radius=0.08,
+        location=(0, 0, 0.9)
+    )
     collar = bpy.context.active_object
     collar.name = "Collar"
     
-    # Join all parts
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.context.view_layer.objects.active = body
+    # Join collar to shirt
+    bpy.ops.object.select_all(action='DESELECT')
+    shirt.select_set(True)
+    collar.select_set(True)
+    bpy.context.view_layer.objects.active = shirt
     bpy.ops.object.join()
     
-elif clothing_type == "shoes":
-    # Create shoe base (foot shape)
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
+    return shirt
+
+def create_shoes():
+    """Create shoe model"""
+    # Create main shoe body
+    bpy.ops.mesh.primitive_cube_add(
+        size=1,
+        location=(0, 0.2, 0)
+    )
     shoe = bpy.context.active_object
     shoe.name = "Shoe"
+    shoe.scale = (1.8, 2.2, 0.6)
     
-    # Scale to make it more shoe-like
-    shoe.scale = (2, 1, 0.5)
-    
-    # Add sole
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -0.3))
+    # Create sole
+    bpy.ops.mesh.primitive_cube_add(
+        size=1,
+        location=(0, 0.1, -0.35)
+    )
     sole = bpy.context.active_object
     sole.name = "Sole"
-    sole.scale = (2.2, 1.2, 0.1)
+    sole.scale = (1.9, 2.4, 0.15)
+    
+    # Create heel
+    bpy.ops.mesh.primitive_cube_add(
+        size=1,
+        location=(0, -0.8, -0.2)
+    )
+    heel = bpy.context.active_object
+    heel.name = "Heel"
+    heel.scale = (1.5, 0.8, 0.4)
     
     # Join all parts
-    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    shoe.select_set(True)
+    sole.select_set(True)
+    heel.select_set(True)
     bpy.context.view_layer.objects.active = shoe
     bpy.ops.object.join()
     
-else:
-    # Default to cube for unknown types
-    bpy.ops.mesh.primitive_cube_add(size=2)
+    return shoe
+
+def create_dress():
+    """Create dress model"""
+    # Create main body (longer than t-shirt)
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=current_detail["vertices"],
+        radius=1.0,
+        depth=2.5,
+        location=(0, 0, 0)
+    )
+    dress = bpy.context.active_object
+    dress.name = "Dress"
+    
+    # Shape the dress
+    bpy.context.view_layer.objects.active = dress
+    bpy.ops.object.mode_set(mode='EDIT')
+    bm = bmesh.from_edit_mesh(dress.data)
+    
+    for vert in bm.verts:
+        z = vert.co.z
+        # Flare at bottom
+        if z < -0.5:
+            scale_factor = 1.0 + abs(z + 0.5) * 0.3
+            vert.co.x *= scale_factor
+            vert.co.y *= scale_factor
+        # Taper at waist
+        elif -0.2 < z < 0.2:
+            scale_factor = 0.8
+            vert.co.x *= scale_factor
+            vert.co.y *= scale_factor
+    
+    bmesh.update_edit_mesh(dress.data)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    return dress
+
+def create_jacket():
+    """Create jacket model"""
+    # Start with shirt base but make it bulkier
+    jacket = create_shirt()
+    jacket.name = "Jacket"
+    
+    # Make it slightly larger
+    jacket.scale = (1.1, 1.1, 1.0)
+    
+    return jacket
+
+def create_generic():
+    """Create generic clothing item"""
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=current_detail["vertices"],
+        radius=1,
+        depth=2,
+        location=(0, 0, 0)
+    )
     obj = bpy.context.active_object
-    obj.name = "GeneratedModel"
+    obj.name = "GenericClothing"
+    return obj
 
-print("Base geometry created")
+# Create the appropriate model based on clothing type
+clothing_lower = clothing_type.lower()
+if clothing_lower in ["tshirt", "t-shirt", "tee"]:
+    obj = create_tshirt()
+elif clothing_lower in ["pants", "trousers", "jeans"]:
+    obj = create_pants()
+elif clothing_lower in ["shirt", "shirts", "dress_shirt"]:
+    obj = create_shirt()
+elif clothing_lower in ["shoes", "shoe", "sneakers", "boots"]:
+    obj = create_shoes()
+elif clothing_lower in ["dress", "dresses"]:
+    obj = create_dress()
+elif clothing_lower in ["jacket", "coat", "blazer"]:
+    obj = create_jacket()
+else:
+    print(f"Unknown clothing type: {{clothing_type}}, creating generic model")
+    obj = create_generic()
 
-# Get the main object
-obj = bpy.context.active_object
+print(f"Base {{clothing_type}} geometry created")
 
-# Enter edit mode and subdivide
-bpy.context.view_layer.objects.active = obj
-bpy.ops.object.mode_set(mode='EDIT')
+# Apply subdivision if needed
+if current_detail["subdivisions"] > 0:
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.subdivide(number_cuts=current_detail["subdivisions"])
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Add subdivision surface modifier for smoothness
+    modifier = obj.modifiers.new(name="Subdivision", type='SUBSURF')
+    modifier.levels = min(current_detail["subdivisions"], 2)  # Limit to prevent excessive geometry
 
-# Subdivide using Blender operators (more compatible)
-bpy.ops.mesh.subdivide(number_cuts=current_detail["subdivisions"])
+print("Mesh subdivision applied")
 
-print("Mesh subdivided")
-
-bpy.ops.object.mode_set(mode='OBJECT')
-
-# Add subdivision surface modifier
-modifier = obj.modifiers.new(name="Subdivision", type='SUBSURF')
-modifier.levels = current_detail["subdivisions"]
-
-print("Subdivision modifier added")
-
-# Create material based on clothing type
-material = bpy.data.materials.new(name=f"GeneratedMaterial_{clothing_type}")
+# Create material
+material = bpy.data.materials.new(name=f"Material_{{clothing_type}}")
 material.use_nodes = True
+nodes = material.node_tree.nodes
+links = material.node_tree.links
 
 # Clear default nodes
-material.node_tree.nodes.clear()
+nodes.clear()
 
-# Add principled BSDF
-bsdf = material.node_tree.nodes.new(type='ShaderNodeBsdfPrincipled')
-output = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+# Add principled BSDF and output
+bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
+output = nodes.new(type='ShaderNodeOutputMaterial')
+links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
 
 # Set material properties based on clothing type
-if clothing_type == "tshirt":
-    bsdf.inputs['Base Color'].default_value = (0.8, 0.2, 0.2, 1)  # Red
+clothing_lower = clothing_type.lower()
+if clothing_lower in ["tshirt", "t-shirt", "tee"]:
+    bsdf.inputs['Base Color'].default_value = (0.8, 0.3, 0.2, 1.0)  # Orange-red
     bsdf.inputs['Roughness'].default_value = 0.8
-    bsdf.inputs['Specular IOR Level'].default_value = 0.1
-elif clothing_type == "pants":
-    bsdf.inputs['Base Color'].default_value = (0.1, 0.1, 0.3, 1)  # Dark blue
+elif clothing_lower in ["pants", "trousers", "jeans"]:
+    bsdf.inputs['Base Color'].default_value = (0.2, 0.2, 0.4, 1.0)  # Dark blue
     bsdf.inputs['Roughness'].default_value = 0.9
-    bsdf.inputs['Specular IOR Level'].default_value = 0.05
-elif clothing_type == "shirts":
-    bsdf.inputs['Base Color'].default_value = (0.9, 0.9, 0.9, 1)  # White
+elif clothing_lower in ["shirt", "shirts", "dress_shirt"]:
+    bsdf.inputs['Base Color'].default_value = (0.9, 0.9, 0.95, 1.0)  # Light blue
     bsdf.inputs['Roughness'].default_value = 0.7
-    bsdf.inputs['Specular IOR Level'].default_value = 0.2
-elif clothing_type == "shoes":
-    bsdf.inputs['Base Color'].default_value = (0.1, 0.1, 0.1, 1)  # Black
+elif clothing_lower in ["shoes", "shoe", "sneakers", "boots"]:
+    bsdf.inputs['Base Color'].default_value = (0.1, 0.1, 0.1, 1.0)  # Black
+    bsdf.inputs['Roughness'].default_value = 0.4
+    bsdf.inputs['Specular IOR Level'].default_value = 0.8
+elif clothing_lower in ["dress", "dresses"]:
+    bsdf.inputs['Base Color'].default_value = (0.7, 0.2, 0.4, 1.0)  # Pink/Red
     bsdf.inputs['Roughness'].default_value = 0.6
-    bsdf.inputs['Specular IOR Level'].default_value = 0.3
+elif clothing_lower in ["jacket", "coat", "blazer"]:
+    bsdf.inputs['Base Color'].default_value = (0.3, 0.3, 0.3, 1.0)  # Dark gray
+    bsdf.inputs['Roughness'].default_value = 0.5
 else:
-    bsdf.inputs['Base Color'].default_value = (0.5, 0.5, 0.5, 1)  # Gray
+    bsdf.inputs['Base Color'].default_value = (0.6, 0.6, 0.6, 1.0)  # Gray
 
-# Link nodes
-material.node_tree.links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
-
-print("Material created")
-
-# Load and apply texture if available
+# Apply texture if available
 images_data = {images_data}
-if images_data:
+if images_data and len(images_data) > 0:
     try:
-        # Create image texture node
-        tex_image = material.node_tree.nodes.new('ShaderNodeTexImage')
-        
-        # Load first image as texture
         first_image_path = images_data[0]['path']
         if os.path.exists(first_image_path):
+            # Create image texture node
+            tex_image = nodes.new('ShaderNodeTexImage')
+            
+            # Load image
             blender_image = bpy.data.images.load(first_image_path)
             tex_image.image = blender_image
             
-            # Link to base color
-            material.node_tree.links.new(tex_image.outputs['Color'], bsdf.inputs['Base Color'])
+            # Connect to base color
+            links.new(tex_image.outputs['Color'], bsdf.inputs['Base Color'])
+            
             print("Texture applied successfully")
         else:
-            print(f"Image not found: {{first_image_path}}")
+            print(f"Image file not found: {{first_image_path}}")
     except Exception as e:
-        print(f"Error loading texture: {{e}}")
+        print(f"Error applying texture: {{e}}")
 
-# Assign material to mesh
-obj.data.materials.append(material)
+# Assign material to object
+if obj.data.materials:
+    obj.data.materials[0] = material
+else:
+    obj.data.materials.append(material)
 
-# Optimize mesh
+# UV unwrap for proper texture mapping
 bpy.context.view_layer.objects.active = obj
 bpy.ops.object.mode_set(mode='EDIT')
-
-# Remove doubles
-bpy.ops.mesh.remove_doubles(threshold=0.01)
-
+bpy.ops.mesh.select_all(action='SELECT')
+bpy.ops.uv.smart_project(angle_limit=66, island_margin=0.02)
 bpy.ops.object.mode_set(mode='OBJECT')
 
-print("Mesh optimization complete")
+# Final mesh cleanup
+bpy.ops.object.mode_set(mode='EDIT')
+bpy.ops.mesh.remove_doubles(threshold=0.001)
+bpy.ops.mesh.normals_make_consistent(inside=False)
+bpy.ops.object.mode_set(mode='OBJECT')
+
+# Apply smooth shading
+bpy.ops.object.shade_smooth()
+
+print("Material and UV mapping applied")
 
 # Export as GLB
 output_path = "{temp_dir_forward}/generated_model.glb"
 print(f"Exporting to: {{output_path}}")
 
-# Ensure the output directory exists
+# Ensure output directory exists
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-# Export the model
 try:
+    # Select only our object for export
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    
+    # Export GLB
     bpy.ops.export_scene.gltf(
         filepath=output_path,
-        use_selection=False,
+        use_selection=True,  # Only export selected objects
         export_format='GLB',
         export_texcoords=True,
         export_materials='EXPORT',
         export_colors=True,
         export_cameras=False,
-        export_lights=False
+        export_lights=False,
+        export_animations=False
     )
-    # Verify the file was created
+    
+    # Verify export
     if os.path.exists(output_path):
         file_size = os.path.getsize(output_path)
-        print(f"Model exported successfully to: {{output_path}} (size: {{file_size}} bytes)")
+        print(f"Successfully exported {{clothing_type}} model to: {{output_path}} ({{file_size}} bytes)")
     else:
-        print(f"GLB export failed: file not created.")
-        raise Exception("GLB export failed: file not created.")
+        raise Exception("GLB file was not created")
+        
 except Exception as e:
-    print(f"GLB export error: {{e}}")
+    print(f"Export error: {{e}}")
+    import traceback
+    traceback.print_exc()
     raise
+
+print("3D model generation completed successfully!")
 '''
         
         # Save script to temp file
@@ -531,51 +659,75 @@ except Exception as e:
         return script_path
     
     def _run_blender_script(self, script_path, progress_callback=None, export_format='GLB'):
-        """Run Blender script and return output path. Only allow .glb or .gltf export. Log and raise error if export fails."""
+        """Run Blender script and return output path. Only allow .glb or .gltf export."""
         if export_format.upper() not in ['GLB', 'GLTF']:
             raise ValueError('Only GLB or GLTF export formats are supported.')
+        
         ext = '.glb' if export_format.upper() == 'GLB' else '.gltf'
         output_path = os.path.join(self.temp_dir, f'generated_model{ext}')
+        
         try:
             # Run Blender in background mode
             cmd = [
                 self.blender_executable,
                 "--background",
-                "--python", script_path
+                "--python", script_path,
+                "--python-exit-code", "1"  # Exit with error code if Python script fails
             ]
+            
             if progress_callback:
                 progress_callback("running_blender", 60, f"Executing Blender script for {export_format} export...")
+            
             logger.info(f"Running Blender command: {' '.join(cmd)}")
             logger.info(f"Script path: {script_path}")
             logger.info(f"Temp directory: {self.temp_dir}")
-            # Run the command
+            
+            # Set environment variables for Blender
+            env = os.environ.copy()
+            env['PYTHONPATH'] = os.pathsep.join(sys.path)
+            
+            # Run the command with extended timeout
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300,  # 5 minute timeout
-                cwd=self.temp_dir
+                timeout=600,  # 10 minute timeout
+                cwd=self.temp_dir,
+                env=env
             )
+            
+            logger.info(f"Blender return code: {result.returncode}")
             logger.info(f"Blender stdout:\n{result.stdout}")
+            
             if result.stderr:
-                logger.error(f"Blender stderr:\n{result.stderr}")
+                logger.warning(f"Blender stderr:\n{result.stderr}")
+            
             if result.returncode != 0:
-                logger.error(f"Blender script failed with return code {result.returncode}: {result.stderr}")
-                raise RuntimeError(f"Blender script failed with return code {result.returncode}: {result.stderr}")
+                error_msg = f"Blender script failed with return code {result.returncode}"
+                if result.stderr:
+                    error_msg += f": {result.stderr}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
+            
             # Check for output file
             if os.path.exists(output_path):
                 file_size = os.path.getsize(output_path)
-                logger.info(f"{export_format} file generated successfully: {output_path} (size: {file_size} bytes)")
-                return output_path
+                if file_size > 0:
+                    logger.info(f"{export_format} file generated successfully: {output_path} (size: {file_size} bytes)")
+                    return output_path
+                else:
+                    raise RuntimeError(f"Generated {export_format} file is empty")
             else:
+                # List temp directory contents for debugging
                 temp_files = os.listdir(self.temp_dir)
                 logger.error(f"No {export_format} output file found. Temp directory contents: {temp_files}")
-                logger.error(f"Blender stdout:\n{result.stdout}")
-                logger.error(f"Blender stderr:\n{result.stderr}")
-                raise RuntimeError(f"Blender did not generate {export_format} output file. Checked for: {output_path}")
+                logger.error(f"Expected file: {output_path}")
+                raise RuntimeError(f"Blender did not generate {export_format} output file")
+                
         except subprocess.TimeoutExpired:
-            logger.error("Blender script timed out after 5 minutes")
-            raise RuntimeError("Blender script timed out after 5 minutes")
+            error_msg = "Blender script timed out after 10 minutes"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
         except Exception as e:
             logger.error(f"Error running Blender: {str(e)}")
             raise RuntimeError(f"Error running Blender: {str(e)}")
@@ -595,3 +747,17 @@ except Exception as e:
             'polygon_count': estimated_polygons,
             'file_size': file_size
         }
+    
+    def cleanup(self):
+        """Clean up temporary files"""
+        try:
+            import shutil
+            if os.path.exists(self.temp_dir):
+                shutil.rmtree(self.temp_dir)
+                logger.info(f"Cleaned up temporary directory: {self.temp_dir}")
+        except Exception as e:
+            logger.warning(f"Error cleaning up temporary directory: {str(e)}")
+    
+    def __del__(self):
+        """Destructor to ensure cleanup"""
+        self.cleanup()

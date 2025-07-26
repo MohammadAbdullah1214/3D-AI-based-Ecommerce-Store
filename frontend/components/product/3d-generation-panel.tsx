@@ -1,429 +1,329 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import Image from "next/image"
-import { useGetProductMediaQuery } from "@/store/services/mediaApi"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import {
-  HelpCircle,
-  ImageIcon,
-  CheckCircle,
-  XCircle,
-  RotateCw,
-  Ban,
-  Loader2,
-  Info,
-  Lightbulb,
-} from "lucide-react"
-import { getMediaUrl } from "@/utils/product-utils"
-import type { Product, GenerationStatus, ProductMedia } from "@/app/types/product"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { DialogDescription } from "@radix-ui/react-dialog"
-
-const ANGLE_DEFINITIONS = {
-  front: {
-    label: "Front View",
-    description: "A clear picture of the product from the front.",
-    icon: <ImageIcon className="h-8 w-8 text-gray-400" />,
-  },
-  back: {
-    label: "Back View",
-    description: "A picture showing the back of the product.",
-    icon: <ImageIcon className="h-8 w-8 text-gray-400" />,
-  },
-  left: {
-    label: "Left View",
-    description: "A picture showing the left side of the product.",
-    icon: <ImageIcon className="h-8 w-8 text-gray-400" />,
-  },
-  right: {
-    label: "Right View",
-    description: "A picture showing the right side of the product.",
-    icon: <ImageIcon className="h-8 w-8 text-gray-400" />,
-  },
-  top: {
-    label: "Top View",
-    description: "A picture showing the top of the product.",
-    icon: <ImageIcon className="h-8 w-8 text-gray-400" />,
-  },
-  bottom: {
-    label: "Bottom View",
-    description: "A picture showing the bottom of the product.",
-    icon: <ImageIcon className="h-8 w-8 text-gray-400" />,
-  },
-}
-
-const CLOTHING_TYPES = ["tshirt", "pants", "shirts", "shoes"]
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CuboidIcon as Cube, Sparkles, Settings, Play, Square, Download, Eye } from "lucide-react"
 
 interface ThreeDGenerationPanelProps {
-  productId: number
-  productMedia: ProductMedia[]
-  generationStatus?: GenerationStatus | null
-  has3dModel: boolean
-  onGenerationStart: (
-    detailLevel: string,
-    angleMapping: Record<string, number>,
-    clothingType: string,
-  ) => void
-  onCancel: () => void
-  isGenerating: boolean
-  isCancelling: boolean
+  images: { id: string; url: string }[]
+  onImageSelect: (angle: string, imageId: string) => void
+  selectedImages: { [key: string]: string }
+  onGenerate: () => void
+  status: string
+  progress: number
+  message: string
+  onCancel: () => Promise<void>
+  clothingType: string
+  onClothingTypeChange: (type: string) => void
+  detailLevel: string
+  onDetailLevelChange: (level: string) => void
 }
 
-export function ThreeDGenerationPanel({
-  productId,
-  productMedia,
-  generationStatus,
-  onGenerationStart,
+export default function ThreeDGenerationPanel({
+  images = [],
+  onImageSelect,
+  selectedImages = {},
+  onGenerate,
+  status,
+  progress,
+  message,
   onCancel,
-  isGenerating,
-  isCancelling,
+  clothingType,
+  onClothingTypeChange,
+  detailLevel,
+  onDetailLevelChange,
 }: ThreeDGenerationPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [detailLevel, setDetailLevel] = useState("medium")
-  const [clothingType, setClothingType] = useState("")
-  const [angleMapping, setAngleMapping] = useState<Record<string, number | null>>({
-    front: null,
-    back: null,
-    left: null,
-    right: null,
-    top: null,
-    bottom: null,
-  })
-  const [selectedAngle, setSelectedAngle] = useState<string | null>(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("selection")
 
-  const productImages = useMemo(
-    () => (productMedia || []).filter((media) => media.file_type === "image"),
-    [productMedia],
-  )
-  
-  const assignedImagesCount = useMemo(
-    () => Object.values(angleMapping).filter((id) => id !== null).length,
-    [angleMapping],
-  )
+  const angles = [
+    { key: "front", label: "Front View", description: "Main front-facing image" },
+    { key: "back", label: "Back View", description: "Rear view of the item" },
+    { key: "side", label: "Side View", description: "Profile view from the side" },
+    { key: "top", label: "Top View", description: "View from above" },
+    { key: "bottom", label: "Bottom View", description: "View from below" },
+    { key: "diagonal", label: "Diagonal View", description: "45-degree angle view" },
+  ]
 
-  const isSetupComplete = assignedImagesCount >= 2 && assignedImagesCount <= 6 && clothingType !== ""
+  const clothingTypes = [
+    { value: "shirt", label: "Shirt/T-Shirt" },
+    { value: "pants", label: "Pants/Trousers" },
+    { value: "dress", label: "Dress" },
+    { value: "jacket", label: "Jacket/Coat" },
+    { value: "shoes", label: "Shoes" },
+    { value: "accessories", label: "Accessories" },
+    { value: "other", label: "Other" },
+  ]
 
-  const handleSelectImage = (angle: string, imageId: number) => {
-    setAngleMapping((prev) => ({ ...prev, [angle]: imageId }))
-    setIsDialogOpen(false)
-  }
+  const detailLevels = [
+    { value: "low", label: "Low Detail", description: "Fast generation, basic quality" },
+    { value: "medium", label: "Medium Detail", description: "Balanced speed and quality" },
+    { value: "high", label: "High Detail", description: "Slow generation, best quality" },
+  ]
 
-  const handleGenerateClick = () => {
-    if (isSetupComplete) {
-      const assignedAngles = Object.entries(angleMapping)
-        .filter(([, imageId]) => imageId !== null)
-        .reduce(
-          (acc, [angle, imageId]) => {
-            acc[angle] = imageId as number
-            return acc
-          },
-          {} as Record<string, number>,
-        )
-      onGenerationStart(detailLevel, assignedAngles, clothingType)
-    }
-  }
-  
-  const getSelectedImageSrc = (angle: string): string | null => {
-    const imageId = angleMapping[angle]
-    if (!imageId) return null
-    const image = productImages.find((img) => img.id === imageId)
-    return image ? getMediaUrl(image) || null : null
-  }
-
-  const renderStatus = () => {
-    if (!generationStatus?.has_generation) {
-      return (
-        <Alert variant="default" className="bg-blue-50 border-blue-200">
-          <Lightbulb className="h-4 w-4 text-blue-600" />
-          <AlertTitle>Ready to Generate</AlertTitle>
-          <AlertDescription>
-            You haven't generated a 3D model for this product yet. Follow the steps below to create one.
-          </AlertDescription>
-        </Alert>
-      )
-    }
-
-    const { status, progress, message } = generationStatus
+  const getStatusColor = () => {
     switch (status) {
-      case "pending":
-      case "processing":
-        return (
-          <Card className="p-4 bg-gray-50">
-            <div className="flex items-center mb-2">
-              <RotateCw className="h-4 w-4 mr-2 animate-spin text-blue-600" />
-              <p className="font-semibold text-blue-800">
-                Generation in Progress... ({status})
-              </p>
-            </div>
-            <Progress value={progress} className="w-full mb-2" />
-            <p className="text-sm text-gray-600">
-              {progress}% complete. {message}
-            </p>
-            <Button
-              className="w-full mt-4"
-              variant="destructive"
-              onClick={onCancel}
-              disabled={isCancelling}
-            >
-              {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
-              Cancel Generation
-            </Button>
-          </Card>
-        )
+      case "generating":
+        return "bg-blue-500/20 text-blue-300 border-blue-500/30"
       case "completed":
-        return (
-          <Alert variant="default" className="bg-green-50 border-green-300">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle>Generation Complete!</AlertTitle>
-            <AlertDescription>
-              Your 3D model is ready. It will now appear on the product page.
-            </AlertDescription>
-          </Alert>
-        )
+        return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
       case "failed":
-        return (
-          <Alert variant="destructive">
-            <XCircle className="h-4 w-4" />
-            <AlertTitle>Generation Failed</AlertTitle>
-            <AlertDescription>
-              {message || "Something went wrong. Please try again or contact support."}
-            </AlertDescription>
-          </Alert>
-        )
-      case "cancelled":
-        return (
-          <Alert>
-            <Ban className="h-4 w-4" />
-            <AlertTitle>Generation Cancelled</AlertTitle>
-            <AlertDescription>The 3D model generation process was cancelled.</AlertDescription>
-          </Alert>
-        )
+        return "bg-red-500/20 text-red-300 border-red-500/30"
       default:
-        return null
+        return "bg-gray-500/20 text-gray-300 border-gray-500/30"
     }
   }
 
-  const isGeneratingOrCompleted =
-    generationStatus?.has_generation &&
-    (generationStatus.status === "processing" ||
-      generationStatus.status === "pending" ||
-      generationStatus.status === "completed")
+  const getStatusIcon = () => {
+    switch (status) {
+      case "generating":
+        return <Play className="h-4 w-4" />
+      case "completed":
+        return <Download className="h-4 w-4" />
+      case "failed":
+        return <Square className="h-4 w-4" />
+      default:
+        return <Cube className="h-4 w-4" />
+    }
+  }
+
+  const selectedCount = Object.keys(selectedImages).length
+  const canGenerate = selectedCount >= 2 && clothingType && detailLevel
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle>AI-Powered 3D Model Generation</CardTitle>
-        <CardDescription>
-          Create a 3D model of your product automatically from existing images.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="instructions">
-            <AccordionTrigger>
-              <div className="flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-blue-500" />
-                <span className="font-semibold">How does this work? (Click to expand)</span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="space-y-2 pt-2 text-sm text-gray-700">
-              <p>
-                <b>Step 1: Assign Images:</b> For each angle below, click the card and select the product image that
-                best matches that view. You must assign between 2 and 6 images.
-              </p>
-              <p>
-                <b>Step 2: Choose Clothing Type:</b> Select the type of clothing you are generating a model for.
-              </p>
-              <p>
-                <b>Step 3: Choose Detail Level:</b> Select how detailed you want the final 3D model to be. "High"
-                looks best but takes longer to generate.
-              </p>
-              <p>
-                <b>Step 4: Generate:</b> Once all images and a clothing type are selected, click the "Generate Model"
-                button. The AI will process the images and create the model. This can take several minutes.
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        {renderStatus()}
-
-        {!isGeneratingOrCompleted && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-semibold text-lg mb-1">1. Assign Images for Each Angle</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                You must assign between 2 and 6 images to generate a model. Currently assigned:{" "}
-                <span className="font-bold">{assignedImagesCount}</span>.
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {Object.entries(ANGLE_DEFINITIONS).map(([angle, { label, icon, description }]) => {
-                  const src = getSelectedImageSrc(angle)
-                  return (
-                    <Dialog key={angle}>
-                      <DialogTrigger asChild>
-                        <Card className="flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:shadow-md hover:border-blue-500 transition-all border-2 border-dashed relative group">
-                          {src ? (
-                            <>
-                              <Image
-                                src={src}
-                                alt={`Selected for ${label}`}
-                                fill
-                                className="object-cover rounded-md"
-                              />
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-md">
-                                <p className="text-white font-semibold">Change</p>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              {icon}
-                              <p className="font-semibold mt-2">{label}</p>
-                              <p className="text-xs text-gray-500">{description}</p>
-                            </>
-                          )}
-                          {src && (
-                            <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-1">
-                              <CheckCircle className="h-4 w-4" />
-                            </div>
-                          )}
-                        </Card>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl">
-                        <DialogHeader>
-                          <DialogTitle>Select Image for: {label}</DialogTitle>
-                          <DialogDescription>
-                            Choose one of your uploaded product images to represent the {label}.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <ScrollArea className="h-[60vh]">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
-                            {productImages.map((image) => (
-                              <DialogClose asChild key={image.id}>
-                                <button
-                                  onClick={() => handleSelectImage(angle, image.id)}
-                                  className={`relative rounded-lg overflow-hidden border-4 ${
-                                    angleMapping[angle] === image.id
-                                      ? "border-blue-500"
-                                      : "border-transparent hover:border-blue-300"
-                                  }`}
-                                >
-                                  <Image
-                                    src={getMediaUrl(image)}
-                                    alt={`Product Image ${image.id}`}
-                                    width={200}
-                                    height={200}
-                                    className="object-cover w-full h-full"
-                                  />
-                                </button>
-                              </DialogClose>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      </DialogContent>
-                    </Dialog>
-                  )
-                })}
-              </div>
+    <Card className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-[#F3C998]/20">
+              <Cube className="h-6 w-6 text-[#F3C998]" />
             </div>
-
             <div>
-              <h3 className="font-semibold text-lg mb-2">2. Choose Clothing Type</h3>
-              <Select value={clothingType} onValueChange={setClothingType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a clothing type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLOTHING_TYPES.map((type) => (
-                    <SelectItem key={type} value={type} className="capitalize">
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-lg mb-2">3. Choose Detail Level</h3>
-              <Select value={detailLevel} onValueChange={setDetailLevel}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low - Faster, less detail</SelectItem>
-                  <SelectItem value="medium">Medium - Good balance</SelectItem>
-                  <SelectItem value="high">High - Best quality, slower</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 mt-2">
-                Higher detail levels result in a more accurate model but take longer to process.
-              </p>
+              <CardTitle className="text-white text-xl font-bold">3D Model Generation</CardTitle>
+              <CardDescription className="text-gray-300">Create a 3D model from your product images</CardDescription>
             </div>
           </div>
-        )}
+          <Badge className={`px-3 py-1 ${getStatusColor()}`}>
+            {getStatusIcon()}
+            <span className="ml-2 capitalize">{status || "Ready"}</span>
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-white/5 border border-white/10">
+            <TabsTrigger
+              value="selection"
+              className="data-[state=active]:bg-[#F3C998]/20 data-[state=active]:text-[#F3C998] text-gray-300"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Image Selection
+            </TabsTrigger>
+            <TabsTrigger
+              value="settings"
+              className="data-[state=active]:bg-[#F3C998]/20 data-[state=active]:text-[#F3C998] text-gray-300"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </TabsTrigger>
+            <TabsTrigger
+              value="generation"
+              className="data-[state=active]:bg-[#F3C998]/20 data-[state=active]:text-[#F3C998] text-gray-300"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generation
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="selection" className="space-y-4 mt-6">
+            <div className="text-sm text-gray-300 mb-4">
+              Select images for different angles. At least 2 angles are required for 3D generation.
+            </div>
+
+            <div className="grid gap-4">
+              {angles.map((angle) => (
+                <div
+                  key={angle.key}
+                  className="p-4 rounded-lg bg-white/5 border border-white/10 hover:border-[#F3C998]/30 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-white font-medium">{angle.label}</h4>
+                      <p className="text-sm text-gray-400">{angle.description}</p>
+                    </div>
+                    <Badge
+                      variant={selectedImages[angle.key] ? "default" : "outline"}
+                      className={
+                        selectedImages[angle.key]
+                          ? "bg-[#F3C998]/20 text-[#F3C998] border-[#F3C998]/30"
+                          : "border-white/20 text-gray-400"
+                      }
+                    >
+                      {selectedImages[angle.key] ? "Selected" : "Not Selected"}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {images.map((image) => (
+                      <button
+                        key={image.id}
+                        onClick={() => onImageSelect(angle.key, image.id)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
+                          selectedImages[angle.key] === image.id
+                            ? "border-[#F3C998] ring-2 ring-[#F3C998]/30"
+                            : "border-white/20 hover:border-[#F3C998]/50"
+                        }`}
+                      >
+                        <img
+                          src={image.url || "/placeholder.svg"}
+                          alt={`Product image ${image.id}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {selectedImages[angle.key] === image.id && (
+                          <div className="absolute inset-0 bg-[#F3C998]/20 flex items-center justify-center">
+                            <div className="w-6 h-6 rounded-full bg-[#F3C998] flex items-center justify-center">
+                              <span className="text-[#1D212D] text-xs font-bold">✓</span>
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg bg-[#F3C998]/10 border border-[#F3C998]/20">
+              <div className="text-sm text-[#F3C998] font-medium">
+                Progress: {selectedCount} of {angles.length} angles selected
+              </div>
+              <div className="mt-2">
+                <Progress value={(selectedCount / angles.length) * 100} className="h-2" />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4 mt-6">
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-white mb-2 block">Clothing Type</label>
+                <Select value={clothingType} onValueChange={onClothingTypeChange}>
+                  <SelectTrigger className="bg-white/5 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998]">
+                    <SelectValue placeholder="Select clothing type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#2A2F3A] border-white/20">
+                    {clothingTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value} className="text-white hover:bg-white/10">
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-white mb-2 block">Detail Level</label>
+                <Select value={detailLevel} onValueChange={onDetailLevelChange}>
+                  <SelectTrigger className="bg-white/5 border-white/20 text-white focus:ring-2 focus:ring-[#F3C998] focus:border-[#F3C998]">
+                    <SelectValue placeholder="Select detail level" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#2A2F3A] border-white/20">
+                    {detailLevels.map((level) => (
+                      <SelectItem key={level.value} value={level.value} className="text-white hover:bg-white/10">
+                        <div>
+                          <div className="font-medium">{level.label}</div>
+                          <div className="text-xs text-gray-400">{level.description}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <h4 className="text-blue-300 font-medium mb-2">Generation Tips</h4>
+              <ul className="text-sm text-blue-200 space-y-1">
+                <li>• Use high-quality, well-lit images for best results</li>
+                <li>• Ensure consistent lighting across all angles</li>
+                <li>• Higher detail levels take longer but produce better quality</li>
+                <li>• Front and back views are most important for clothing items</li>
+              </ul>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="generation" className="space-y-4 mt-6">
+            <div className="space-y-4">
+              {status === "generating" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-medium">Generating 3D Model...</span>
+                    <span className="text-[#F3C998] font-medium">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-3" />
+                  <p className="text-sm text-gray-300">{message}</p>
+                </div>
+              )}
+
+              {status === "completed" && (
+                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Download className="h-5 w-5 text-emerald-300" />
+                    <span className="text-emerald-300 font-medium">3D Model Generated Successfully!</span>
+                  </div>
+                  <p className="text-sm text-emerald-200">{message}</p>
+                </div>
+              )}
+
+              {status === "failed" && (
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Square className="h-5 w-5 text-red-300" />
+                    <span className="text-red-300 font-medium">Generation Failed</span>
+                  </div>
+                  <p className="text-sm text-red-200">{message}</p>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                {status !== "generating" ? (
+                  <Button
+                    onClick={onGenerate}
+                    disabled={!canGenerate}
+                    className="flex-1 bg-[#F3C998] hover:bg-[#F3C998]/90 text-[#1D212D] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate 3D Model
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={onCancel}
+                    variant="outline"
+                    className="flex-1 border-red-500/30 text-red-300 hover:bg-red-500/10 bg-transparent"
+                  >
+                    <Square className="h-4 w-4 mr-2" />
+                    Cancel Generation
+                  </Button>
+                )}
+              </div>
+
+              {!canGenerate && (
+                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                  <p className="text-sm text-yellow-200">
+                    Please select at least 2 images, choose a clothing type, and set the detail level to generate a 3D
+                    model.
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
-      {!isGeneratingOrCompleted && (
-        <CardFooter className="flex flex-col items-stretch">
-          {!isSetupComplete && (
-            <Alert variant="destructive" className="mb-4">
-              <Info className="h-4 w-4" />
-              <AlertTitle>Setup Required</AlertTitle>
-              <AlertDescription>
-                Please assign between 2 and 6 images and choose a clothing type before generating a model.
-              </AlertDescription>
-            </Alert>
-          )}
-          <Button
-            size="lg"
-            onClick={handleGenerateClick}
-            disabled={isGenerating || !isSetupComplete}
-            className="w-full"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              "Generate 3D Model"
-            )}
-          </Button>
-        </CardFooter>
-      )}
     </Card>
   )
 }

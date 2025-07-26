@@ -67,6 +67,14 @@ urlpatterns = [
         'post': 'add_review'
     }), name='product-add-review'),
     
+    path('<int:pk>/reviews/', ProductViewSet.as_view({
+        'get': 'reviews'
+    }), name='product-reviews'),
+    
+    path('<int:pk>/media/', ProductViewSet.as_view({
+        'get': 'media'
+    }), name='product-media'),
+    
     path('<int:pk>/upload-files/', ProductViewSet.as_view({
         'post': 'upload_files'
     }), name='product-upload-files'),

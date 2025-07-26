@@ -23,6 +23,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState<string>("")
+  const [isResendingVerification, setIsResendingVerification] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const dispatch = useDispatch()
@@ -63,7 +66,13 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("API Error:", err)
       if (err.status === 401) {
-        setError("Invalid username or password")
+        if (err.data?.email_verification_required) {
+          setEmailVerificationRequired(true)
+          setPendingEmail(err.data.email)
+          setError("Please verify your email address before logging in.")
+        } else {
+          setError("Invalid username or password")
+        }
       } else if (err.data?.detail) {
         setError(err.data.detail)
       } else {
@@ -74,6 +83,30 @@ export default function LoginPage() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
+  }
+
+  const resendVerificationEmail = async () => {
+    setIsResendingVerification(true)
+    try {
+      const response = await fetch("/api/auth/resend-verification/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pendingEmail }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setError("Verification email sent successfully! Please check your inbox.")
+        setEmailVerificationRequired(false)
+      } else {
+        setError(data.error || "Failed to resend verification email")
+      }
+    } catch (error) {
+      setError("Network error. Please try again.")
+    } finally {
+      setIsResendingVerification(false)
+    }
   }
 
   return (
@@ -226,7 +259,22 @@ export default function LoginPage() {
                   <Alert className="bg-red-500/20 border-red-400/30 backdrop-blur-sm animate-in slide-in-from-top-2 duration-300">
                     <AlertCircle className="h-5 w-5 text-red-300" />
                     <AlertTitle className="font-semibold text-red-100">Authentication Error</AlertTitle>
-                    <AlertDescription className="text-red-200">{error}</AlertDescription>
+                    <AlertDescription className="text-red-200">
+                      {error}
+                      {emailVerificationRequired && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm">Please verify your email address to continue.</p>
+                          <Button
+                            onClick={resendVerificationEmail}
+                            disabled={isResendingVerification}
+                            size="sm"
+                            className="bg-[#F3C998] hover:bg-[#F3C998]/90 text-[#1D212D] font-semibold"
+                          >
+                            {isResendingVerification ? "Sending..." : "Resend Verification Email"}
+                          </Button>
+                        </div>
+                      )}
+                    </AlertDescription>
                   </Alert>
                 )}
 

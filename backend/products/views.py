@@ -1168,6 +1168,13 @@ class ProductViewSet(viewsets.ModelViewSet):
         product = self.get_object()
         user = request.user
         
+        # Prevent sellers from reviewing products (including their own)
+        if user.role == 'seller':
+            return Response(
+                {'error': 'Sellers cannot review products. Only customers and admins can leave reviews.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         # Check if user has already reviewed this product
         existing_review = Review.objects.filter(product=product, user=user).first()
         if existing_review:
@@ -1195,6 +1202,34 @@ class ProductViewSet(viewsets.ModelViewSet):
         review = Review.objects.create(**review_data)
         serializer = ReviewSerializer(review)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        description="Get all media files for a product",
+        responses={200: ProductImageSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'])
+    def media(self, request, pk=None):
+        """
+        Get all media files (images, videos, models) for a product
+        """
+        product = self.get_object()
+        media_files = ProductImage.objects.filter(product=product)
+        serializer = ProductImageSerializer(media_files, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @extend_schema(
+        description="Get all reviews for a product",
+        responses={200: ReviewSerializer(many=True)}
+    )
+    @action(detail=True, methods=['get'])
+    def reviews(self, request, pk=None):
+        """
+        Get all reviews for a product
+        """
+        product = self.get_object()
+        reviews = Review.objects.filter(product=product).select_related('user')
+        serializer = ReviewSerializer(reviews, many=True)
+        return Response(serializer.data)
 
     @extend_schema(
         description="Upload files for a product (multipart/form-data)",

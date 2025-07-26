@@ -1,25 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState } from "react"
 import { useParams } from "next/navigation"
 import { useGetProductQuery } from "@/store/services/productApi"
 import { useGetAllMediaQuery } from "@/store/services/mediaApi"
 import { useAddToCartMutation } from "@/store/services/cartApi"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Star,
-  Minus,
-  Plus,
   ShoppingCart,
   Truck,
-  Clock,
   Shield,
-  Info,
-  CheckCircle,
   CuboidIcon as Cube,
   Play,
   Heart,
@@ -33,19 +30,54 @@ import HeaderWrapper from "@/app/header-wrapper"
 import Footer from "@/components/layout/footer"
 import Simple3DViewer from "@/components/product/simple-3d-viewer"
 import { ProductImageCarousel } from "@/components/product/product-image-carousel"
-import { getProductPrice, getProductStock, getBackendMediaUrl, getMediaUrl } from "@/utils/product-utils"
-import { useSelector } from 'react-redux'
-import { useRouter } from 'next/navigation'
-import { useAddItemMutation, useCheckProductQuery, useRemoveItemMutation } from '@/store/services/wishlistApi'
-import { useAddProductReviewMutation } from '@/store/services/reviewApi'
+import { getProductPrice, getProductStock, getBackendMediaUrl } from "@/utils/product-utils"
+import { useSelector } from "react-redux"
+import { useRouter } from "next/navigation"
+import { useAddItemMutation, useCheckProductQuery, useRemoveItemMutation } from "@/store/services/wishlistApi"
+import { useAddProductReviewMutation } from "@/store/services/reviewApi"
 import Link from "next/link"
+
+// Enhanced 3D model detection utility
+const detect3DModel = (file: string): boolean => {
+  if (!file || typeof file !== "string") return false
+
+  const lowerFile = file.toLowerCase()
+  return (
+    lowerFile.endsWith(".glb") ||
+    lowerFile.endsWith(".gltf") ||
+    lowerFile.endsWith(".obj") ||
+    lowerFile.includes(".glb") ||
+    lowerFile.includes(".gltf") ||
+    lowerFile.includes(".obj") ||
+    lowerFile.includes("3d") ||
+    lowerFile.includes("model")
+  )
+}
+
+// Enhanced media URL construction
+const constructMediaUrl = (mediaItem: any): string => {
+  if (!mediaItem) return ""
+
+  // Try different URL properties
+  const possibleUrls = [mediaItem.file, mediaItem.url, mediaItem.media_url, mediaItem.path].filter(Boolean)
+
+  for (const url of possibleUrls) {
+    if (typeof url === "string" && url.trim()) {
+      // Use getBackendMediaUrl if it looks like a relative path
+      if (!url.startsWith("http") && !url.startsWith("/assets/")) {
+        return getBackendMediaUrl(url)
+      }
+      return url
+    }
+  }
+
+  return ""
+}
 
 export default function ProductDetailPage() {
   const params = useParams()
   const productId = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "0"
-
   const { toast } = useToast()
-
   const { data: product, isLoading, error } = useGetProductQuery(Number(productId))
   const { data: allMedia = [], isLoading: mediaLoading } = useGetAllMediaQuery()
   const [addToCart, { isLoading: isAddingToCart }] = useAddToCartMutation()
@@ -53,32 +85,150 @@ export default function ProductDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState(0)
 
   // Get product media - prefer product.media if available, otherwise fallback to allMedia
-  const productMedia = product?.media && product.media.length > 0
-    ? product.media
-    : allMedia.filter((media) => media.product === Number(productId));
+  const productMedia =
+    product?.media && product.media.length > 0
+      ? product.media
+      : allMedia.filter((media) => media.product === Number(productId))
 
-  // Filter media by type
-  const images = productMedia.filter(m => m.file_type === 'image');
-  const videos = productMedia.filter(m => m.file_type === 'video');
-  const models = productMedia.filter(m => m.file_type === 'model' || m.file_type === 'model_3d');
-  // Only use .glb files for 3D model
-  let modelUrl = undefined;
+  // Enhanced media filtering with better 3D detection
+  const images = productMedia.filter((m: any) => {
+    if (!m.file) return false
+
+    // Exclude 3D models from images
+    if (detect3DModel(m.file)) return false
+
+    // Include if marked as image and not a 3D file
+    return (
+      m.file_type === "image" ||
+      (m.file &&
+        (m.file.toLowerCase().includes(".jpg") ||
+          m.file.toLowerCase().includes(".jpeg") ||
+          m.file.toLowerCase().includes(".png") ||
+          m.file.toLowerCase().includes(".webp") ||
+          m.file.toLowerCase().includes(".gif")))
+    )
+  })
+
+  const videos = productMedia.filter(
+    (m: any) =>
+      m.file_type === "video" ||
+      (m.file &&
+        (m.file.toLowerCase().includes(".mp4") ||
+          m.file.toLowerCase().includes(".webm") ||
+          m.file.toLowerCase().includes(".mov") ||
+          m.file.toLowerCase().includes(".avi"))),
+  )
+
+  // Enhanced 3D model detection - most comprehensive approach
+  const models = productMedia.filter((m: any) => {
+    if (!m.file) return false
+
+    // Primary detection: file extension
+    const is3DFile = detect3DModel(m.file)
+
+    // Secondary detection: file_type
+    const isModelType =
+      m.file_type === "model" ||
+      m.file_type === "model_3d" ||
+      m.file_type === "3d" ||
+      m.file_type === "glb" ||
+      m.file_type === "gltf" ||
+      m.file_type === "obj"
+
+    return is3DFile || isModelType
+  })
+
+  console.log("Enhanced Product Media Debug:", {
+    productId,
+    totalMedia: productMedia.length,
+    images: {
+      count: images.length,
+      files: images.map((i) => ({ file: i.file, type: i.file_type })),
+    },
+    videos: {
+      count: videos.length,
+      files: videos.map((v) => ({ file: v.file, type: v.file_type })),
+    },
+    models: {
+      count: models.length,
+      files: models.map((m) => ({
+        id: m.id,
+        file: m.file,
+        file_type: m.file_type,
+        isGLB: m.file?.toLowerCase().endsWith(".glb"),
+        isGLTF: m.file?.toLowerCase().endsWith(".gltf"),
+        isOBJ: m.file?.toLowerCase().endsWith(".obj"),
+        detected3D: detect3DModel(m.file || ''),
+      })),
+    },
+  })
+
+  // Enhanced model URL selection with better validation
+  let modelUrl = ""
+
   if (models.length > 0) {
-    const glb = models.find(m => m.file && m.file.endsWith('.glb'));
-    modelUrl = glb ? getBackendMediaUrl(glb.file) : undefined;
-  }
-  console.log('3D Model URL:', modelUrl);
+    // Priority: .glb > .gltf > .obj > any other 3D file
+    const glb = models.find((m) => m.file && m.file.toLowerCase().endsWith(".glb"))
+    const gltf = models.find((m) => m.file && m.file.toLowerCase().endsWith(".gltf"))
+    const obj = models.find((m) => m.file && m.file.toLowerCase().endsWith(".obj"))
 
-  // Prepare carousel images
-  const carouselImages = images.length > 0
-    ? images.map((img, idx) => ({
-        id: img.id || idx,
-        url: getMediaUrl(img) || img.file || img.url || `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product?.name || 'Product')}`,
-      })).filter(img => typeof img.url === 'string' && img.url.trim() && !img.url.includes('undefined'))
-    : [{
-        id: 0,
-        url: `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product?.name || 'Product')}`,
-      }];
+    const selectedModel = glb || gltf || obj || models[0]
+
+    if (selectedModel && selectedModel.file) {
+      modelUrl = constructMediaUrl(selectedModel)
+    }
+  }
+
+  // Robust model URL validation and fallback
+  const isValidModelUrl = (url: string): boolean => {
+    return Boolean(
+      url &&
+      typeof url === "string" &&
+      url.trim() !== "" &&
+      !url.includes("undefined") &&
+      !url.includes("null") &&
+      !url.includes("NaN") &&
+      url !== "undefined" &&
+      url !== "null"
+    )
+  }
+
+  if (!isValidModelUrl(modelUrl)) {
+    modelUrl = "/assets/3d/realistic_yellow_polo_shirt.glb"
+  }
+
+  console.log("Enhanced 3D Model Selection:", {
+    totalModels: models.length,
+    selectedModelUrl: modelUrl,
+    isDefault: modelUrl === "/assets/3d/realistic_yellow_polo_shirt.glb",
+    isValid: isValidModelUrl(modelUrl),
+    detectedModels: models.map((m) => ({
+      file: m.file,
+      constructedUrl: constructMediaUrl(m),
+      isValid: isValidModelUrl(constructMediaUrl(m)),
+    })),
+  })
+
+  // Enhanced carousel images with better URL construction
+  const carouselImages =
+    images.length > 0
+      ? images
+          .map((img, idx) => {
+            const url = constructMediaUrl(img)
+            return {
+              id: img.id || idx,
+              url: isValidModelUrl(url)
+                ? url
+                : `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product?.name || "Product")}`,
+            }
+          })
+          .filter((img) => img.url && !img.url.includes("undefined"))
+      : [
+          {
+            id: 0,
+            url: `/placeholder.svg?height=400&width=400&text=${encodeURIComponent(product?.name || "Product")}`,
+          },
+        ]
 
   const incrementQuantity = () => setQuantity((prev) => prev + 1)
   const decrementQuantity = () => setQuantity((prev) => (prev > 1 ? prev - 1 : 1))
@@ -89,29 +239,32 @@ export default function ProductDetailPage() {
   const [removeItem, { isLoading: isRemovingWishlist }] = useRemoveItemMutation()
   const { data: isWishlisted, refetch: refetchWishlist } = useCheckProductQuery(
     { product_id: product?.id ?? 0 },
-    { skip: !product?.id }
+    { skip: !product?.id },
   )
+
   const [wishlistError, setWishlistError] = useState<string | null>(null)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [reviewForm, setReviewForm] = useState({ rating: 0, comment: "" })
 
   // Robust seller check
-  const isSellerOfThisProduct = user && user.role === "seller" && product && (user.id === product.seller_id || user.username === product.seller_username);
-  const isOutOfStock = product ? getProductStock(product) <= 0 : true
+  const isSellerOfThisProduct =
+    user &&
+    user.role === "seller" &&
+    product &&
+    (user.id === product.seller_id || user.username === product.seller_username)
 
-  // Get reviews for this product
-  // const { data: reviews = [] } = useGetProductReviewsQuery(Number(productId))
-  const [addReview] = useAddProductReviewMutation()
+    const isOutOfStock = product ? getProductStock(product) <= 0 : true
 
   // Use reviews from product data instead of separate query
   const reviews = product?.reviews || []
 
   const handleAddToCart = async () => {
-    console.log('Add to Cart Clicked:', { isAuthenticated, user });
+    console.log("Add to Cart Clicked:", { isAuthenticated, user })
     if (!isAuthenticated) {
-      router.push(`/login?next=/products/${productId}`)
+      router.push(`/login?next=/products/${productId || ''}`)
       return
     }
+
     if (!product) return
 
     try {
@@ -134,7 +287,6 @@ export default function ProductDetailPage() {
       })
     } catch (error) {
       console.error("Add to cart error:", error)
-
       let errorMessage = "Failed to add product to cart. Please try again."
 
       if (error && typeof error === "object") {
@@ -165,10 +317,12 @@ export default function ProductDetailPage() {
   const handleAddToWishlist = async () => {
     setWishlistError(null)
     if (!isAuthenticated) {
-      router.push(`/login?next=/products/${productId}`)
+      router.push(`/login?next=/products/${productId || ''}`)
       return
     }
+
     if (!product) return
+
     try {
       if (isWishlisted?.in_wishlist) {
         await removeItem({ product_id: product.id })
@@ -178,9 +332,9 @@ export default function ProductDetailPage() {
       refetchWishlist()
     } catch (err) {
       console.error("Wishlist action error:", err)
-      
+
       let errorMessage = "Wishlist action failed"
-      
+
       if (err && typeof err === "object") {
         // Handle 403 Forbidden (seller restriction)
         if ("status" in err && err.status === 403) {
@@ -197,7 +351,7 @@ export default function ProductDetailPage() {
       } else if (typeof err === "string") {
         errorMessage = err
       }
-      
+
       setWishlistError(errorMessage)
     }
   }
@@ -211,7 +365,7 @@ export default function ProductDetailPage() {
           url: window.location.href,
         })
       } catch (error) {
-        console.log('Error sharing:', error)
+        console.log("Error sharing:", error)
       }
     } else {
       // Fallback to copying URL
@@ -222,6 +376,8 @@ export default function ProductDetailPage() {
       })
     }
   }
+
+  const [addReview] = useAddProductReviewMutation()
 
   const handleReviewSubmit = async () => {
     if (reviewForm.rating === 0) {
@@ -293,12 +449,11 @@ export default function ProductDetailPage() {
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                             radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+              backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                              radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
             }}
           ></div>
         </div>
-
         <HeaderWrapper>
           <div className="relative z-10 min-h-screen w-full p-4 md:p-8 flex items-center justify-center">
             <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-12 shadow-2xl text-center max-w-md">
@@ -322,10 +477,10 @@ export default function ProductDetailPage() {
   }
 
   // Get product data
-  const productPrice = getProductPrice(product) ?? 0;
-  const productStock = getProductStock(product) ?? 0;
-  const categoryName = product.category_details?.name || product.category?.name || product.category_name || "Unknown";
-  const sellerName = product.seller_name || product.seller_username || "Unknown";
+  const productPrice = getProductPrice(product) ?? 0
+  const productStock = getProductStock(product) ?? 0
+  const categoryName = product.category_details?.name || product.category?.name || product.category_name || "Unknown"
+  const sellerName = product.seller_name || product.seller_username || "Unknown"
 
   // Mock variants for demonstration
   const variants = [
@@ -341,8 +496,8 @@ export default function ProductDetailPage() {
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%), 
-                           radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
+            backgroundImage: `radial-gradient(circle at 25% 25%, #F3C998 0%, transparent 50%),
+                            radial-gradient(circle at 75% 75%, #F3C998 0%, transparent 50%)`,
           }}
         ></div>
       </div>
@@ -386,7 +541,6 @@ export default function ProductDetailPage() {
                       className="w-full h-full"
                       allowFullscreen={true}
                     />
-
                     {/* Media type badges */}
                     <div className="absolute top-4 right-4 flex flex-col gap-2">
                       {models.length > 0 && (
@@ -405,30 +559,75 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                {/* 3D Model Gallery */}
+                {/* Enhanced 3D Model Gallery */}
                 <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-[#F3C998]/10 transition-all duration-500">
                   <h3 className="text-xl font-semibold mb-4 text-white flex items-center gap-2">
                     <Cube className="h-5 w-5" style={{ color: "#F3C998" }} />
                     3D Model View
+                    {modelUrl && modelUrl !== "/assets/3d/realistic_yellow_polo_shirt.glb" && (
+                      <Badge className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">
+                        Product Model ({models.length} found)
+                      </Badge>
+                    )}
+                    {modelUrl === "/assets/3d/realistic_yellow_polo_shirt.glb" && (
+                      <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-xs">Default Model</Badge>
+                    )}
                   </h3>
-                  {modelUrl ? (
-                    <Simple3DViewer
-                      key={modelUrl}
-                      modelUrl={modelUrl}
-                      productName={product.name}
-                      isDefault={false}
-                      width={500}
-                      height={400}
-                      showControls={true}
-                      showARButton={true}
-                      className="mb-4"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-64 text-center text-gray-400">
-                      <Cube className="h-12 w-12 mb-4" style={{ color: "#F3C998" }} />
-                      <span className="text-lg">No 3D model available for this product yet.</span>
+
+                  {/* Enhanced detected models info */}
+                  {models.length > 0 && (
+                    <div className="mb-3 text-sm text-gray-400">
+                      <p>Detected {models.length} 3D model(s):</p>
+                      <ul className="list-disc list-inside ml-2 text-xs space-y-1">
+                        {models.map((model, idx) => {
+                          const fileName = model.file?.split("/").pop() || "Unknown file"
+                          const constructedUrl = constructMediaUrl(model)
+                          const isCurrentModel = constructedUrl === modelUrl
+
+                          return (
+                            <li key={model.id || idx} className={isCurrentModel ? "text-green-300 font-medium" : ""}>
+                              {fileName}
+                              <span className="text-gray-500"> ({model.file_type})</span>
+                              {model.file?.toLowerCase().endsWith(".glb") && (
+                                <span className="text-green-400"> ✓ GLB</span>
+                              )}
+                              {model.file?.toLowerCase().endsWith(".gltf") && (
+                                <span className="text-blue-400"> ✓ GLTF</span>
+                              )}
+                              {model.file?.toLowerCase().endsWith(".obj") && (
+                                <span className="text-yellow-400"> ✓ OBJ</span>
+                              )}
+                              {isCurrentModel && <span className="text-green-300"> ← Active</span>}
+                              {!isValidModelUrl(constructedUrl) && <span className="text-red-400"> ⚠ Invalid URL</span>}
+                            </li>
+                          )
+                        })}
+                      </ul>
                     </div>
                   )}
+
+                  <Simple3DViewer
+                    key={`${modelUrl}-${productId}`}
+                    modelUrl={modelUrl}
+                    productName={product.name}
+                    isDefault={modelUrl === "/assets/3d/realistic_yellow_polo_shirt.glb"}
+                    width={500}
+                    height={400}
+                    showControls={true}
+                    showARButton={true}
+                    className="mb-4"
+                  />
+
+                  <div className="text-sm text-gray-400 mt-2">
+                    <p>• Drag to rotate • Scroll to zoom • Double-click for auto-rotate</p>
+                    <p>• Click fullscreen button for immersive view</p>
+                    {models.length === 0 && (
+                      <p className="text-yellow-400 mt-1">• No 3D models found - showing default model</p>
+                    )}
+                    {models.length > 0 && modelUrl === "/assets/3d/realistic_yellow_polo_shirt.glb" && (
+                      <p className="text-red-400 mt-1">• 3D models detected but URLs invalid - using default model</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Video Gallery */}
@@ -440,9 +639,12 @@ export default function ProductDetailPage() {
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
                       {videos.map((video, index) => (
-                        <div key={index} className="relative aspect-video overflow-hidden rounded-lg border border-white/20">
+                        <div
+                          key={index}
+                          className="relative aspect-video overflow-hidden rounded-lg border border-white/20"
+                        >
                           <video
-                            src={video.file || video.url}
+                            src={constructMediaUrl(video)}
                             controls
                             className="w-full h-full object-cover"
                             poster="/placeholder.svg?height=200&width=300"
@@ -487,16 +689,17 @@ export default function ProductDetailPage() {
                         ${productPrice.toFixed(2)}
                       </span>
                       {product.discount_price && product.discount_price < product.price && (
-                        <span className="text-2xl text-gray-500 line-through">
-                          ${Number(product.price).toFixed(2)}
-                        </span>
+                        <span className="text-2xl text-gray-500 line-through">${Number(product.price).toFixed(2)}</span>
                       )}
                     </div>
                     {product.discount_price && product.discount_price < product.price && (
                       <div className="mt-2">
                         <Badge className="bg-red-500/80 text-white border-0 shadow-lg backdrop-blur-sm">
                           Save ${(Number(product.price) - Number(product.discount_price)).toFixed(2)} (
-                          {Math.round(((Number(product.price) - Number(product.discount_price)) / Number(product.price)) * 100)}% off)
+                          {Math.round(
+                            ((Number(product.price) - Number(product.discount_price)) / Number(product.price)) * 100,
+                          )}
+                          % off)
                         </Badge>
                       </div>
                     )}
@@ -552,8 +755,8 @@ export default function ProductDetailPage() {
                       className="flex-1 text-[#1D212D] font-semibold hover:scale-105 transition-all duration-300 shadow-lg text-lg py-6 rounded-xl border-0"
                       style={{ backgroundColor: "#F3C998" }}
                       onClick={handleAddToCart}
-                      disabled={isOutOfStock || isAddingToCart || (user && user.role === 'seller')}
-                      title={user && user.role === 'seller' ? 'Sellers cannot add products to cart' : ''}
+                      disabled={isOutOfStock || isAddingToCart || (user && user.role === "seller")}
+                      title={user && user.role === "seller" ? "Sellers cannot add products to cart" : ""}
                     >
                       {isAddingToCart ? (
                         <>
@@ -572,8 +775,8 @@ export default function ProductDetailPage() {
                       size="lg"
                       className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm py-6 bg-white/5 rounded-xl"
                       onClick={handleAddToWishlist}
-                      disabled={isAddingWishlist || (user && user.role === 'seller')}
-                      title={user && user.role === 'seller' ? 'Sellers cannot add products to wishlist' : ''}
+                      disabled={isAddingWishlist || (user && user.role === "seller")}
+                      title={user && user.role === "seller" ? "Sellers cannot add products to wishlist" : ""}
                     >
                       {isAddingWishlist ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className="h-5 w-5" />}
                     </Button>
@@ -645,6 +848,7 @@ export default function ProductDetailPage() {
                       Variants
                     </TabsTrigger>
                   </TabsList>
+
                   <TabsContent value="description" className="p-8">
                     <div className="prose prose-invert max-w-none">
                       <p className="text-gray-300 text-lg leading-relaxed">
@@ -652,6 +856,7 @@ export default function ProductDetailPage() {
                       </p>
                     </div>
                   </TabsContent>
+
                   <TabsContent value="specifications" className="p-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
@@ -687,7 +892,7 @@ export default function ProductDetailPage() {
                           <div className="flex justify-between py-3 border-b border-white/10">
                             <span className="text-gray-400">Dimensions</span>
                             <span className="text-white font-medium">
-                              {(product.length != null || product.width != null || product.height != null)
+                              {product.length != null || product.width != null || product.height != null
                                 ? `${product.length ?? "-"} x ${product.width ?? "-"} x ${product.height ?? "-"} cm`
                                 : "N/A"}
                             </span>
@@ -704,10 +909,11 @@ export default function ProductDetailPage() {
                       </div>
                     </div>
                   </TabsContent>
+
                   <TabsContent value="reviews" className="p-8">
                     <div className="space-y-6">
-                      {/* Review Form for authenticated users */}
-                      {isAuthenticated && !isSellerOfThisProduct && (
+                      {/* Review Form for authenticated users (excluding sellers) */}
+                      {isAuthenticated && user?.role !== 'seller' && (
                         <div className="bg-white/5 p-6 rounded-xl border border-white/10">
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-medium text-white">Write a Review</h3>
@@ -720,7 +926,7 @@ export default function ProductDetailPage() {
                               {showReviewForm ? "Cancel" : "Write Review"}
                             </Button>
                           </div>
-                          
+
                           {showReviewForm && (
                             <div className="space-y-4">
                               <div>
@@ -744,7 +950,6 @@ export default function ProductDetailPage() {
                                   ))}
                                 </div>
                               </div>
-
                               <div>
                                 <label className="block text-sm font-medium text-white mb-2">Your Review</label>
                                 <Textarea
@@ -755,7 +960,6 @@ export default function ProductDetailPage() {
                                   className="bg-white/5 border-white/20 text-white placeholder-gray-400"
                                 />
                               </div>
-
                               <Button
                                 onClick={handleReviewSubmit}
                                 className="bg-[#F3C998] text-[#1D212D] hover:bg-[#F3C998]/90 transition-all duration-300"
@@ -764,6 +968,16 @@ export default function ProductDetailPage() {
                               </Button>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Message for sellers */}
+                      {isAuthenticated && user?.role === 'seller' && (
+                        <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
+                          <p className="text-blue-300 text-sm">
+                            <strong>Note:</strong> Sellers cannot review products to maintain fairness and prevent bias. 
+                            Only customers and admins can leave reviews.
+                          </p>
                         </div>
                       )}
 
@@ -785,8 +999,13 @@ export default function ProductDetailPage() {
                                     />
                                   ))}
                                 </div>
-                                <span className="font-medium text-white">{review.user_name || "User"}</span>
-                                <span className="text-xs text-gray-500">{new Date(review.created_at).toLocaleDateString()}</span>
+                                <span className="font-medium text-white">
+                                  {typeof review.user === "object" && review.user
+? (review.user as any).username || (review.user as any).name || `User ${(review.user as any).id || "Unknown"}`                                    : `User ${review.user_id || review.user || "Unknown"}`}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(review.created_at).toLocaleDateString()}
+                                </span>
                               </div>
                               <div className="text-gray-300 text-base">{review.comment}</div>
                               <div className="text-xs text-gray-500 mt-2">Rating: {review.rating}/5</div>
@@ -800,20 +1019,26 @@ export default function ProductDetailPage() {
                       )}
                     </div>
                   </TabsContent>
+
                   <TabsContent value="variants" className="p-8">
                     <div className="space-y-6">
                       {Array.isArray(product.variants) && product.variants.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {product.variants.map((variant) => (
                             <div key={variant.id} className="border border-white/20 rounded-lg p-4 bg-white/5">
-                              <div className="font-medium text-white mb-2">{variant.name || `Variant #${variant.id}`}</div>
+                              <div className="font-medium text-white mb-2">
+                                {variant.name || `Variant #${variant.id}`}
+                              </div>
                               <div className="text-sm text-gray-300 mb-2">
-                                Price: ${variant.price_adjustment ? (Number(product.price) + Number(variant.price_adjustment)).toFixed(2) : Number(product.price).toFixed(2)}
+                                Price: $
+                                {variant.price_adjustment
+                                  ? (Number(product.price) + Number(variant.price_adjustment)).toFixed(2)
+                                  : Number(product.price).toFixed(2)}
                               </div>
                               <div className="text-sm text-gray-300 mb-2">Stock: {variant.stock_quantity ?? 0}</div>
                               {Array.isArray(variant.options) && variant.options.length > 0 && (
                                 <div className="text-xs text-gray-400">
-                                  Options: {variant.options.map(opt => opt.option_value || opt.value).join(", ")}
+                                  Options: {variant.options.map((opt) => opt.option_value || opt.value).join(", ")}
                                 </div>
                               )}
                             </div>

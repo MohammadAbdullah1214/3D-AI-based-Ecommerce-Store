@@ -72,6 +72,23 @@ export const api = createApi({
     },
     credentials: "include", // Include credentials in all requests
   }),
-  tagTypes: ["Product", "Cart", "User", "Order", "Analytics", "Admin", "Category", "Review", "Auth", "Users", "Media", "GenerationStatus"],
+  tagTypes: [
+    "Product", 
+    "Cart", 
+    "User", 
+    "Order", 
+    "Analytics", 
+    "Admin", 
+    "Category", 
+    "Review", 
+    "Auth", 
+    "Users", 
+    "Media", 
+    "GenerationStatus",
+    "ProductMedia",
+    "VariantTypes",
+    "VariantOptions",
+    "ProductVariants"
+  ],
   endpoints: () => ({}),
 })
