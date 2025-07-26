@@ -18,6 +18,7 @@ interface MediaUploadProps {
   onClear?: () => void
   existingMedia?: ProductMedia[]
   isUploading?: boolean
+  preventFormSubmission?: boolean
 }
 
 export const MediaUpload: React.FC<MediaUploadProps> = ({
@@ -25,6 +26,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   onFilesChange,
   existingMedia = [],
   isUploading = false,
+  preventFormSubmission = false,
 }) => {
   const [newFiles, setNewFiles] = useState<File[]>([])
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -154,10 +156,15 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                   )}
                   <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
+                      type="button"
                       size="icon"
                       variant="destructive"
                       className="h-7 w-7 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 hover:text-red-200"
-                      onClick={() => handleRemoveExistingMedia(media.id)}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleRemoveExistingMedia(media.id)
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                       <span className="sr-only">Delete</span>
@@ -207,10 +214,15 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                       {renderFilePreview(file)}
                       <div className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
+                          type="button"
                           size="icon"
                           variant="destructive"
                           className="h-7 w-7 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 hover:text-red-200"
-                          onClick={() => handleRemoveNewFile(file)}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleRemoveNewFile(file)
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -222,7 +234,11 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
                   ))}
                   <button
                     type="button"
-                    onClick={() => inputRef.current?.click()}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      inputRef.current?.click()
+                    }}
                     className="flex flex-col items-center justify-center w-full aspect-square border-2 border-dashed border-[#F3C998]/30 rounded-lg text-[#F3C998] hover:bg-white/10 hover:border-[#F3C998]/50 transition-all duration-300 bg-white/5"
                   >
                     <Icon className="w-10 h-10 mb-2" />
@@ -243,8 +259,11 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
             </div>
           )}
           <Button
+            type="button"
             variant="outline"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
               setNewFiles([])
               onFilesChange([])
             }}

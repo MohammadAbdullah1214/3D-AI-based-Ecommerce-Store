@@ -106,6 +106,7 @@ export default function NewProductPage() {
       height: null,
       variants: [],
     },
+    mode: "onChange", // Only validate on change, don't submit
   })
 
   const handleFileSelect = (type: "images" | "videos" | "models", files: FileList | null) => {
@@ -261,7 +262,15 @@ export default function NewProductPage() {
           <div className="max-w-7xl mx-auto space-y-8">
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <form 
+                onSubmit={form.handleSubmit(onSubmit)} 
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target instanceof HTMLElement && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault()
+                  }
+                }}
+                className="space-y-8"
+              >
                 <div className="max-w-6xl mx-auto">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -400,7 +409,11 @@ export default function NewProductPage() {
                                   variant="outline"
                                   className="cursor-pointer border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
                                   type="button"
-                                  onClick={() => imageInputRef.current?.click()}
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    imageInputRef.current?.click()
+                                  }}
                                 >
                                   <Upload className="h-4 w-4 mr-2" />
                                   Select Images
@@ -420,7 +433,11 @@ export default function NewProductPage() {
                                         size="sm"
                                         variant="destructive"
                                         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/80 hover:bg-red-500"
-                                        onClick={() => removeFile("images", index)}
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          removeFile("images", index)
+                                        }}
                                       >
                                         ×
                                       </Button>
@@ -453,7 +470,11 @@ export default function NewProductPage() {
                                   variant="outline"
                                   className="cursor-pointer border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
                                   type="button"
-                                  onClick={() => videoInputRef.current?.click()}
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    videoInputRef.current?.click()
+                                  }}
                                 >
                                   <Upload className="h-4 w-4 mr-2" />
                                   Select Videos
@@ -479,7 +500,11 @@ export default function NewProductPage() {
                                         type="button"
                                         size="sm"
                                         variant="destructive"
-                                        onClick={() => removeFile("videos", index)}
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          removeFile("videos", index)
+                                        }}
                                         className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300"
                                       >
                                         Remove
@@ -509,7 +534,11 @@ export default function NewProductPage() {
                                     variant="outline"
                                     className="cursor-pointer border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300 backdrop-blur-sm bg-transparent"
                                     type="button"
-                                    onClick={() => modelInputRef.current?.click()}
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      modelInputRef.current?.click()
+                                    }}
                                   >
                                     <Upload className="h-4 w-4 mr-2" />
                                     Upload 3D Model
@@ -536,7 +565,11 @@ export default function NewProductPage() {
                                         type="button"
                                         size="sm"
                                         variant="destructive"
-                                        onClick={() => removeFile("models", index)}
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          removeFile("models", index)
+                                        }}
                                         className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300"
                                       >
                                         Remove

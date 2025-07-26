@@ -136,6 +136,7 @@ export default function EditProductPage() {
       mediaFiles: [],
       variants: [],
     },
+    mode: "onChange", // Only validate on change, don't submit
   })
 
   // Effect to reset form when product data loads
@@ -174,14 +175,16 @@ export default function EditProductPage() {
         setIsPollingStatus(false)
         // Refetch product data only on success to get the updated `has_3d_model` flag
         if (generationStatus.status === "completed") {
-          refetchProduct()
+          setTimeout(() => {
+            refetchProduct()
+          }, 1000) // Add a small delay to ensure the backend has processed the completion
         }
-      } else if (isActive !== isPollingStatus) {
-        // Start polling if the job is active
-        setIsPollingStatus(isActive)
+      } else if (isActive && !isPollingStatus) {
+        // Start polling if the job is active and we're not already polling
+        setIsPollingStatus(true)
       }
     }
-  }, [generationStatus, isPollingStatus, refetchProduct])
+  }, [generationStatus?.status, isPollingStatus, refetchProduct])
 
   // Handle form submission
   const onSubmit = async (values: FormValues) => {
@@ -271,13 +274,17 @@ export default function EditProductPage() {
   const handleGenerationStart = useCallback(
     async (detailLevel: string, angleMapping: Record<string, number>, clothingType: string) => {
       try {
-        await generate3dModel({
+        console.log("Starting 3D generation with:", { productId, detailLevel, angleMapping, clothingType })
+        
+        const result = await generate3dModel({
           productId,
           detailLevel: detailLevel as "low" | "medium" | "high",
           angleMapping,
           clothingType,
         }).unwrap()
 
+        console.log("3D generation started successfully:", result)
+        
         toast({
           title: "3D Model Generation Started",
           description: "Your model is being created. You can monitor the progress here.",
@@ -285,7 +292,7 @@ export default function EditProductPage() {
       } catch (error: any) {
         console.error("Error starting generation:", error)
         const errorMessage =
-          error.data?.detail || "Could not start the 3D model generation process. Please check the console."
+          error.data?.detail || error.data?.error || "Could not start the 3D model generation process. Please check the console."
         toast({
           title: "Generation Failed to Start",
           description: errorMessage,
@@ -328,6 +335,17 @@ export default function EditProductPage() {
     Object.entries(selectedImages).forEach(([angle, imageId]) => {
       angleMapping[angle] = parseInt(imageId)
     })
+
+    console.log("handleGenerate3D called with:", { selectedImages, detailLevel, clothingType, angleMapping })
+    
+    if (Object.keys(angleMapping).length < 2) {
+      toast({
+        title: "Insufficient Images",
+        description: "Please select at least 2 images for 3D generation.",
+        variant: "destructive",
+      })
+      return
+    }
 
     handleGenerationStart(detailLevel, angleMapping, clothingType)
   }, [selectedImages, detailLevel, clothingType, handleGenerationStart])
@@ -412,7 +430,15 @@ export default function EditProductPage() {
         <div className="relative z-10 min-h-screen w-full p-4 md:p-8">
           <div className="max-w-7xl mx-auto space-y-8">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <form 
+                onSubmit={form.handleSubmit(onSubmit)} 
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target instanceof HTMLElement && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault()
+                  }
+                }}
+                className="space-y-8"
+              >
                 <div className="max-w-5xl mx-auto">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -535,6 +561,7 @@ export default function EditProductPage() {
                                 }}
                                 existingMedia={productMedia}
                                 isUploading={isUploading}
+                                preventFormSubmission={true} // Add this prop to prevent form submission
                               />
                             </TabsContent>
                             <TabsContent value="3d-model">
@@ -557,6 +584,7 @@ export default function EditProductPage() {
   onClothingTypeChange={setClothingType}
   detailLevel={detailLevel}
   onDetailLevelChange={setDetailLevel}
+  preventFormSubmission={true} // Add this prop to prevent form submission
 />
                             </TabsContent>
                           </Tabs>

@@ -22,6 +22,7 @@ interface ThreeDGenerationPanelProps {
   onClothingTypeChange: (type: string) => void
   detailLevel: string
   onDetailLevelChange: (level: string) => void
+  preventFormSubmission?: boolean
 }
 
 export default function ThreeDGenerationPanel({
@@ -37,6 +38,7 @@ export default function ThreeDGenerationPanel({
   onClothingTypeChange,
   detailLevel,
   onDetailLevelChange,
+  preventFormSubmission = false,
 }: ThreeDGenerationPanelProps) {
   const [activeTab, setActiveTab] = useState("selection")
 
@@ -50,13 +52,14 @@ export default function ThreeDGenerationPanel({
   ]
 
   const clothingTypes = [
-    { value: "shirt", label: "Shirt/T-Shirt" },
+    { value: "tshirt", label: "T-Shirt" },
+    { value: "shirt", label: "Shirt" },
     { value: "pants", label: "Pants/Trousers" },
     { value: "dress", label: "Dress" },
     { value: "jacket", label: "Jacket/Coat" },
+    { value: "hoodie", label: "Hoodie" },
+    { value: "skirt", label: "Skirt" },
     { value: "shoes", label: "Shoes" },
-    { value: "accessories", label: "Accessories" },
-    { value: "other", label: "Other" },
   ]
 
   const detailLevels = [
@@ -172,7 +175,12 @@ export default function ThreeDGenerationPanel({
                     {images.map((image) => (
                       <button
                         key={image.id}
-                        onClick={() => onImageSelect(angle.key, image.id)}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          onImageSelect(angle.key, image.id)
+                        }}
                         className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
                           selectedImages[angle.key] === image.id
                             ? "border-[#F3C998] ring-2 ring-[#F3C998]/30"
@@ -293,7 +301,12 @@ export default function ThreeDGenerationPanel({
               <div className="flex space-x-3">
                 {status !== "generating" ? (
                   <Button
-                    onClick={onGenerate}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onGenerate()
+                    }}
                     disabled={!canGenerate}
                     className="flex-1 bg-[#F3C998] hover:bg-[#F3C998]/90 text-[#1D212D] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -302,7 +315,12 @@ export default function ThreeDGenerationPanel({
                   </Button>
                 ) : (
                   <Button
-                    onClick={onCancel}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onCancel()
+                    }}
                     variant="outline"
                     className="flex-1 border-red-500/30 text-red-300 hover:bg-red-500/10 bg-transparent"
                   >
