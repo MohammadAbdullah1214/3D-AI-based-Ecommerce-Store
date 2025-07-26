@@ -475,15 +475,25 @@ def user_login(request):
                 )
             
             # Check if email is verified (for non-admin users)
+            # Allow login but show a warning if email is not verified
             if user.role != 'admin' and not user.is_staff and not user.email_verified:
-                return Response(
-                    {
-                        'error': 'Please verify your email address before logging in.',
-                        'email_verification_required': True,
-                        'email': user.email
+                # Still allow login but return a warning
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email,
+                        'role': user.role,
+                        'email_verified': user.email_verified,
+                        'is_staff': user.is_staff,
                     },
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
+                    'warning': 'Please verify your email address for full access to all features.',
+                    'email_verification_required': True,
+                    'email': user.email
+                }, status=status.HTTP_200_OK)
             
             # Check password
             if user.check_password(password):
